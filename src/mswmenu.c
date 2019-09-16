@@ -453,7 +453,7 @@ int  PASCAL GetKeyText (int Key, char *Text, int TextLength)
 	if (*prefix_key_ptr == 0) {
 	    KEYTAB  *KTp;
 
-	    KTp = FindKeyBinding ( (void *)((Key & CTLX) ? cex : meta) );
+	    KTp = FindKeyBinding ( (void *) (intptr_t)((Key & CTLX) ? cex : meta) );
 	    if (KTp->k_type == BINDNUL) return 0;
 	    *prefix_key_ptr = KTp->k_code;
 	}
@@ -565,8 +565,8 @@ void  PASCAL    UpdateMenuItemText (HMENU hMenu, int Position,
     for (i = 0; (NewText[i] != '\0') && (NewText[i] != '\t'); ++i) ;
         /* find the first tab char or the string's end */
 
-    KTp = FindKeyBinding (MTp->m_word & MB_BUF ? (void*)MTp->m_ptr.buf :
-						 (void*)MTp->m_ptr.fp);
+    KTp = FindKeyBinding (MTp->m_word & MB_BUF ? (void*)(intptr_t)MTp->m_ptr.buf :
+						 (void*)(intptr_t)MTp->m_ptr.fp);
     if (KTp->k_type != BINDNUL) {
 	NewText[i] = '\t';
 	if (!GetKeyText (KTp->k_code, &NewText[i+1], MAXMENUTITLE + 1 - i))

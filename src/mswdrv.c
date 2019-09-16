@@ -457,10 +457,10 @@ static int PASCAL mswnewscr (SCREEN *sp)
     BOOL    Maximized;
 
 #ifdef WIN32
-	Maximized = (GetWindowLongPtr((HWND)SendMessage(hMDIClientWnd,
+	Maximized = (0 != (GetWindowLongPtr((HWND)SendMessage(hMDIClientWnd,
 		WM_MDIGETACTIVE,
 		0, 0L),
-		GWL_STYLE) & WS_MAXIMIZE);
+		GWL_STYLE) & WS_MAXIMIZE) );
 #else
 	Maximized = HIWORD(SendMessage(hMDIClientWnd, WM_MDIGETACTIVE, 0, 0L));
 #endif
