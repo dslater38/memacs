@@ -1,0 +1,26 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 9.00
+# Visual Studio 2005
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "memacs", "memacs\memacs.vcproj", "{85C2CEF7-A7CC-4898-A82B-B4994171A7EC}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ntemacs", "ntemacs\ntemacs.vcproj", "{9925D113-EFB3-4D69-9201-F557A00F6CFE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{85C2CEF7-A7CC-4898-A82B-B4994171A7EC}.Debug|Win32.ActiveCfg = Debug|Win32
+		{85C2CEF7-A7CC-4898-A82B-B4994171A7EC}.Debug|Win32.Build.0 = Debug|Win32
+		{85C2CEF7-A7CC-4898-A82B-B4994171A7EC}.Release|Win32.ActiveCfg = Release|Win32
+		{85C2CEF7-A7CC-4898-A82B-B4994171A7EC}.Release|Win32.Build.0 = Release|Win32
+		{9925D113-EFB3-4D69-9201-F557A00F6CFE}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9925D113-EFB3-4D69-9201-F557A00F6CFE}.Debug|Win32.Build.0 = Debug|Win32
+		{9925D113-EFB3-4D69-9201-F557A00F6CFE}.Release|Win32.ActiveCfg = Release|Win32
+		{9925D113-EFB3-4D69-9201-F557A00F6CFE}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

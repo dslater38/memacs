@@ -1,0 +1,8 @@
+**/x64
+**/Win32
+**/Debug
+**/Release
+**/Release-static
+**/Debug-static
+*.ncb
+*.suo
