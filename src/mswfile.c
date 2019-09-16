@@ -12,7 +12,7 @@
 #include	"elang.h"
 #include	"resource.h"
 
-#if WINNT || WINXP
+#if WINNT
 #define FNAMELEN NFILEN
 #else
 #define FNAMELEN 13
@@ -26,7 +26,7 @@ struct ffblk fileblock;	/* structure for directory searches */
 #if	MSC | ZTC | IC
 #include <dos.h>
 
-#if WINDOW_MSWIN32
+#ifdef WIN32
 WIN32_FIND_DATA fileblock;
 HANDLE  filehandle;
 #else
@@ -246,7 +246,7 @@ static BOOL PASCAL FileDlgOK (HWND hDlg)
 	n = &s[l - 1];
 	if ((*n == '\\') || (*n == ':')) {
 	    /* it is a directory or drive */
-	    if (l < NFILEN - 1 - strlen(StarName)) {
+	    if (l < NFILEN - 1 - (int)strlen(StarName)) {
 		strcat (s, StarName);
 		UpdateAll (hDlg, s);
 	    }
@@ -301,7 +301,7 @@ static BOOL PASCAL FileNameCompletion (HWND hDlg)
 
 	LastSel = SendDlgItemMessage (hDlg, ID_FILENAME, EM_GETSEL, 0, 0L);
         SetDlgItemText (hDlg, ID_FILENAME, s);  /* remove the spaces */
-#if WINDOW_MSWIN32
+#ifdef WIN32
         SendDlgItemMessage (hDlg, ID_FILENAME, EM_SETSEL,
                             (WPARAM)LOWORD(LastSel), (LPARAM)HIWORD(LastSel));
 #else
@@ -410,7 +410,7 @@ INT_PTR EXPORT FAR PASCAL  FileDlgProc (HWND hDlg, UINT wMsg, WPARAM wParam,
             s[i] = '\0';
 	    SetDlgItemText (hDlg, ID_FILENAME, s);
 	}
-#if WINDOW_MSWIN32
+#ifdef WIN32
 	SendDlgItemMessage (hDlg, ID_FILENAME, EM_SETSEL, i, -1);
 #else
 	SendDlgItemMessage (hDlg, ID_FILENAME, EM_SETSEL,
@@ -432,7 +432,7 @@ NoMoreTypeAhead:
 	case ID_DIRECTORIES:
 	    switch (NOTIFICATION_CODE) {
 	    case LBN_SELCHANGE:
-#if WINDOW_MSWIN32
+#ifdef WIN32
 		DlgDirSelectEx (hDlg, s, NFILEN -1 - (int)strlen (StarName),
                                 ID_DIRECTORIES);
 #else
@@ -449,7 +449,7 @@ NoMoreTypeAhead:
 	case ID_FILES:
 	    switch (NOTIFICATION_CODE) {
 	    case LBN_SELCHANGE:
-#if WINDOW_MSWIN32
+#ifdef WIN32
 		DlgDirSelectEx (hDlg, s, NFILEN -1, ID_FILES);
 #else
 		DlgDirSelect (hDlg, s, ID_FILES);
@@ -506,7 +506,7 @@ static void    UpdateAll (HWND hDlg, char *s)
         strcpy (StarName, s);
 	DlgDirList (hDlg, s, ID_FILES, 0, ATTR_FIL);
         SetDlgItemText (hDlg, ID_FILENAME, StarName);
-#if WINDOW_MSWIN32
+#ifdef WIN32
 	SendDlgItemMessage (hDlg, ID_FILENAME, EM_SETSEL, 0, -1);
 #else
 	SendDlgItemMessage (hDlg, ID_FILENAME, EM_SETSEL, 0, MAKELONG(0, -1));
@@ -638,7 +638,7 @@ char *fspec;	/* pattern to match */
 		strcat(fname, ".*");
 
 	/* and call for the first file */
-#if WINDOW_MSWIN32
+#ifdef WIN32
         if ((filehandle = FindFirstFile (fname, &fileblock)) ==
             INVALID_HANDLE_VALUE)
 #else
@@ -648,7 +648,7 @@ char *fspec;	/* pattern to match */
 
 	/* return the first file name! */
 	strcpy(rbuf, path);
-#if WINDOW_MSWIN32
+#ifdef WIN32
         strcat(rbuf, fileblock.cFileName);
         mklower(rbuf);
         if (fileblock.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
@@ -672,7 +672,7 @@ char *PASCAL getnfile()
 #endif // 0
 
 	/* and call for the next file */
-#if WINDOW_MSWIN32
+#ifdef WIN32
         if (!FindNextFile (filehandle, &fileblock)) {
             FindClose(filehandle);
             return (NULL);
@@ -684,7 +684,7 @@ char *PASCAL getnfile()
 
 	/* return the first file name! */
 	strcpy(rbuf, path);
-#if WINDOW_MSWIN32
+#ifdef WIN32
         strcat(rbuf, fileblock.cFileName);
         mklower(rbuf);
         if (fileblock.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)

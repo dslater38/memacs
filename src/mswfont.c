@@ -403,7 +403,7 @@ INT_PTR EXPORT FAR PASCAL  FontDlgProc (HWND hDlg, UINT wMsg, WPARAM wParam,
 
 	    id = (Metrics.tmCharSet == ANSI_CHARSET ? ID_ANSI : ID_OEM);
 	    SendMessage (hDlg, WM_COMMAND,
-#if WINDOW_MSWIN32
+#ifdef WIN32
                          MAKELONG(id, BN_CLICKED), (LONG_PTR)GetDlgItem (hDlg, id));
 #else
                          id, MAKELONG(GetDlgItem (hDlg, id), BN_CLICKED));
@@ -600,6 +600,8 @@ BOOL FAR PASCAL PickEmacsFont (void)
 
 /* returns TRUE is a new font has been picked */
 {
+    BOOL    FontChanged;
+    DLGPROC ProcInstance;
 #ifdef WIN32
 	static int newway = 0;
 	if(newway)
@@ -607,8 +609,6 @@ BOOL FAR PASCAL PickEmacsFont (void)
 		return choose_font();
 	}
 #endif
-    BOOL    FontChanged;
-    DLGPROC ProcInstance;
 
     ProcInstance = MakeProcInstance (FontDlgProc,
 				     hEmacsInstance);

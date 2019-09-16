@@ -16,7 +16,7 @@
 /* The SUBALLOC #define implements malloc/free/realloc by segment
    suballocation routines (needed for Borland C 2.0, but not necessary
    under Borland C 3.0). Not needed under MSC 7.0 either. */
-#if WINDOW_MSWIN32
+#ifdef WIN32
 	#define SUBALLOC    0
 #else
 	#if     TURBO
@@ -35,13 +35,13 @@
 		#endif	/* _MSC_VER < 700 */
 	#endif	/* MSC */
 
-#endif	/* WINDOW_MSWIN32 */
+#endif	/* WIN32 */
 
 #include    <shellapi.h>
 
 #include    "mswrid.h"  /* contains all the Resource IDs */
 
-#if WINDOW_MSWIN32
+#ifdef WIN32
 #define LPDATA(p) ((LPARAM)(LPSTR)(p))
 #define HDROP HANDLE
 #define NOTIFICATION_CODE HIWORD(wParam)    /* for WM_COMMAND parsing */
@@ -56,11 +56,11 @@
 
 /* offsets for the screen windows extra bytes */
 #define GWL_SCRPTR  0                   /* SCREEN structure pointer */
-#if WINXP
+/* #ifdef WIN32 */
 #define GWW_SCRCX   (GWL_SCRPTR+sizeof(LONG_PTR))   /* client area width */
-#else
-#define GWW_SCRCX   (GWL_SCRPTR+sizeof(LONG))   /* client area width */
-#endif
+/* #else */
+/* #define GWW_SCRCX   (GWL_SCRPTR+sizeof(LONG))   */ /* client area width */
+/* #endif */
 #define GWW_SCRCY   (GWW_SCRCX+sizeof(WORD))       /* client area height */
 #define SCRWNDEXTRA (GWW_SCRCY+sizeof(WORD))
 

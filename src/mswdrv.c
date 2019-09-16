@@ -456,12 +456,13 @@ static int PASCAL mswnewscr (SCREEN *sp)
     MDICREATESTRUCT cs;
     BOOL    Maximized;
 
-#if WINDOW_MSWIN32
+#ifdef WIN32
 	Maximized = (GetWindowLongPtr((HWND)SendMessage(hMDIClientWnd,
 		WM_MDIGETACTIVE,
-		0, 0),
+		0, 0L),
 		GWL_STYLE) & WS_MAXIMIZE);
-    Maximized = HIWORD(SendMessage (hMDIClientWnd, WM_MDIGETACTIVE, 0, 0L));
+#else
+	Maximized = HIWORD(SendMessage(hMDIClientWnd, WM_MDIGETACTIVE, 0, 0L));
 #endif
     if (Maximized) {
         restorescreen (FALSE, 0);   /* de-maximize previous one */
@@ -539,7 +540,7 @@ static int PASCAL mswsizscr (SCREEN *sp)
 	   allowed to change its size. If it is the active MDI child and
 	   is maximized, we will actually resize the frame window so, if
 	   the later is maximized, we restore it first. */
-#if WINDOW_MSWIN32
+#ifdef WIN32
 		HWND hActiveScr;
 		hActiveScr = (HWND)SendMessage(hMDIClientWnd, WM_MDIGETACTIVE, 0, 0);
 		Maximized = (hScrWnd == hActiveScr) && (GetWindowLongPtr(hScrWnd, GWL_STYLE) & WS_MAXIMIZE);
@@ -647,14 +648,19 @@ static int PASCAL mswtopscr (SCREEN *sp)
 /* called by screen.c when selecting a screen for current */
 {
     if (!InternalRequest) {
+	BOOL isMaximized = FALSE;
+	LPARAM lParam = (LPARAM)&isMaximized;
 	InternalRequest = TRUE;
-	SendMessage (hMDIClientWnd, WM_MDIACTIVATE,
-		     (WPARAM)sp->s_drvhandle, 0L);
-#if WINDOW_MSWIN32
-	if (GetWindowLongPtr(sp->s_drvhandle, GWL_STYLE) & WS_MAXIMIZE) {
-#else
-    if (HIWORD(SendMessage (hMDIClientWnd, WM_MDIGETACTIVE, 0, 0L))) {
+	/* WIN16 - maximized state is returned in HIWORD. 
+	WIN32 maximized state is set in pointer to BOOL passed in as LPARAM */
+#ifndef WIN32
+	lParam = 0;
+	isMaximized = 
 #endif
+	HIWORD(SendMessage (hMDIClientWnd, WM_MDIACTIVATE,
+		     (WPARAM)sp->s_drvhandle, lParam));
+
+	if(isMaximized) {
 	    /* we have a maximized screen. Since we activated it under
 	       InternalRequest, the new size has not yet been processed
 	       by emacs, so we have to fix that */

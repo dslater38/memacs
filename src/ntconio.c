@@ -1,11 +1,11 @@
 /*      NTCONIO.C       Operating specific video & keyboard functions
- *                      for the Window NT operating system (console mode)
- *                      for MicroEMACS 4.00
- *                      (C)Copyright 1995 by Daniel M. Lawrence
+ *                      for the Window NT/XP operating system (console mode)
+ *                      for MicroEMACS 5.00
+ *                      (C)Copyright 1995-2008 by Daniel M. Lawrence
  *                      Windows NT version by Walter Warniaha
  *
  * The routines in this file provide video and keyboard support using the
- * Windows NT console functions.
+ * Windows NT/XP/Visual Studio 2008 console functions.
  *
  */
 
@@ -20,12 +20,46 @@
 #include        "edef.h"
 #include        "elang.h"
 
-#if     XPCON || NTCON
+#if     NTCON
 #define NROW    256              /* Max Screen size.         */
 #define NCOL    256             /* Edit if you want to.         */
 #define MARGIN  8               /* size of minimim margin and   */
 #define SCRSIZ  64              /* scroll size for extended lines */
 #define NPAUSE  5               /* # times thru update to pause */
+
+ /* CONSOLE_SCREEN_BUFFER_INFOEX is defined in consoleapi2.h, which is part of newer VS versions*/
+/* Use FORCE_DEFINE_CONSOLE_SCREEN_BUFFER_INFOEX to force the inclusion of this definition */
+/* Use NO_DEFINE_CONSOLE_SCREEN_BUFFER_INFOEX to force the exclusion of this definition */
+/* _CONSOLE_SCREEN_BUFFER_INFOEX first shows up in visual studio 2008 - version 15 of the compiler. */
+#if ( (_MSC_VER < 1500) || defined(FORCE_DEFINE_CONSOLE_SCREEN_BUFFER_INFOEX)) && !defined(NO_DEFINE_CONSOLE_SCREEN_BUFFER_INFOEX)
+
+typedef struct _CONSOLE_SCREEN_BUFFER_INFOEX {
+	ULONG cbSize;
+	COORD dwSize;
+	COORD dwCursorPosition;
+	WORD wAttributes;
+	SMALL_RECT srWindow;
+	COORD dwMaximumWindowSize;
+	WORD wPopupAttributes;
+	BOOL bFullscreenSupported;
+	COLORREF ColorTable[16];
+} CONSOLE_SCREEN_BUFFER_INFOEX, *PCONSOLE_SCREEN_BUFFER_INFOEX;
+
+#endif
+
+/* Poly fills when running on an older OS*/
+static BOOL WINAPI GetConsoleScreenBufferInfoExPtr_pFill(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInfo);
+static BOOL WINAPI SetConsoleScreenBufferInfoExPtr_pFill(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInfo);
+
+typedef BOOL(WINAPI *GetConsoleScreenBufferInfoExPtr)(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInfo);
+typedef BOOL(WINAPI *SetConsoleScreenBufferInfoExPtr)(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInof);
+
+/* These are the function pointers used in this file. Initialized to the polyfils to ensure they're always valid.  */
+static GetConsoleScreenBufferInfoExPtr getConsoleScreenBufferInfoEx = GetConsoleScreenBufferInfoExPtr_pFill;
+static SetConsoleScreenBufferInfoExPtr setConsoleScreenBufferInfoEx = SetConsoleScreenBufferInfoExPtr_pFill;
+
+/* Dynamically load GetConsoleScreenBufferInfoExPtr/SetConsoleScreenBufferInfoExPtr from kernel32.dll if available*/
+static void initAPI();
 
 int win_version = WINVER;
 int win32_winnt = _WIN32_WINNT;
@@ -78,7 +112,7 @@ int revflag = FALSE;                    /* are we currently in rev video? */
 static HANDLE hInput, hOutput;
 static char chConsoleTitle[256];    // Preserve the title of the console.
 static DWORD ConsoleMode, OldConsoleMode;
-CONSOLE_SCREEN_BUFFER_INFO OldConsoleInfo = { 0 };
+CONSOLE_SCREEN_BUFFER_INFOEX OldConsoleInfo = { 0 };
 
 static WORD wKeyEvent;
 
@@ -520,7 +554,7 @@ static
 int WaitForInput()
 {
 	/* wait for input for a short time */
-	while(WaitForSingleObject(hInput, 10) == WAIT_TIMEOUT)
+	while(WaitForSingleObject(hInput, 40) == WAIT_TIMEOUT)
 	{
 		/* check to see if the console window has been resized */
 		if(PendingScreenResize())
@@ -643,6 +677,17 @@ printf("UNKNOWN event pending\n");
 
 	return(dwCount ? TRUE : FALSE);
 }
+
+int PASCAL NEAR xp_typahead()
+
+{
+	/* anything waiting in the input queue? */
+	if (in_check())
+		return(TRUE);
+
+	return(FALSE);
+}
+
 #endif
 
 static WORD near ntAttribute(void)
@@ -797,14 +842,22 @@ int PASCAL NEAR ntbeep(void)
 int PASCAL NEAR ntopen()
 {
 	BOOL success = FALSE;
-	CONSOLE_SCREEN_BUFFER_INFO Console = { 0 };
-	// Console.cbSize = sizeof(CONSOLE_SCREEN_BUFFER_INFOEX);
+	CONSOLE_SCREEN_BUFFER_INFOEX Console = { 0 };
+	Console.cbSize = sizeof(CONSOLE_SCREEN_BUFFER_INFOEX);
+
+	initAPI();
+
+
+	/* This will allocate a console if started from
+	/* the windows NT program manager. */
+	AllocConsole();
+
 
 	/* Get our standard handles */
 	hInput = GetStdHandle(STD_INPUT_HANDLE);
 	hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
 	/* Store the original console info */
-	success = GetConsoleScreenBufferInfo(hOutput, &Console);
+	success = getConsoleScreenBufferInfoEx(hOutput, &Console);
 
 	OldConsoleInfo = Console;
 
@@ -816,10 +869,6 @@ int PASCAL NEAR ntopen()
 	/* initialize the input queue */
 	in_init();
 	strcpy(os, "WINNT");
-
-	/* This will allocate a console if started from
-	/* the windows NT program manager. */
-	/* AllocConsole(); */
 
 
 
@@ -855,22 +904,15 @@ int PASCAL NEAR ntopen()
   
 	Console.dwSize.Y = term.t_nrow+1;
 	Console.dwSize.X = term.t_ncol;
-	Console.srWindow.Bottom = Console.srWindow.Top + term.t_nrow+1;
-	Console.srWindow.Right = Console.srWindow.Left + term.t_ncol;
+	Console.srWindow.Bottom = Console.srWindow.Top + Console.dwSize.Y;
+	Console.srWindow.Right = Console.srWindow.Left + Console.dwSize.X;
 	Console.dwMaximumWindowSize.X = Console.dwSize.X;
 	Console.dwMaximumWindowSize.Y = Console.dwSize.Y;
-  Console.wAttributes = (FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
-  
-#if 0  
+	Console.wAttributes = (FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
 	Console.bFullscreenSupported = TRUE;
-  success = SetConsoleScreenBufferInfoEx(hOutput, &Console);
-#endif
-  
-	
-	success = SetConsoleScreenBufferSize(hOutput,Console.dwSize);
-	success = SetConsoleWindowInfo(hOutput, FALSE, &(Console.srWindow));
-	success = SetConsoleTextAttribute(hOutput, Console.wAttributes);
-  
+	success = setConsoleScreenBufferInfoEx(hOutput, &Console);
+
+
 	/* remeber this size */
 	lastwrow = term.t_nrow;
 	lastwcol = term.t_ncol;
@@ -906,18 +948,16 @@ int PASCAL NEAR ntopen()
 int PASCAL NEAR ntclose(void)
 {
 	/* reset the title on the window */
+
 	SetConsoleTitle(chConsoleTitle);
 
 	if(OldConsoleInfo.dwSize.X > 0 )
 	{
-		// SetConsoleScreenBufferInfo(hOutput, &OldConsoleInfo);
-		SetConsoleScreenBufferSize(hOutput,OldConsoleInfo.dwSize);
-		SetConsoleWindowInfo(hOutput, FALSE, &(OldConsoleInfo.srWindow));
-		SetConsoleTextAttribute(hOutput, OldConsoleInfo.wAttributes);
+		setConsoleScreenBufferInfoEx(hOutput, &OldConsoleInfo);
 
 	}
 
-	/* FreeConsole(); */
+	FreeConsole();
 	return(TRUE);
 }
 
@@ -965,4 +1005,51 @@ int f,n;	/* default flag, numeric argument [unused] */
 	return(TRUE);
 }
 #endif
+
+static BOOL WINAPI GetConsoleScreenBufferInfoExPtr_pFill(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInfo)
+{
+	BOOL success = FALSE;
+	if (pInfo && pInfo->cbSize == sizeof(CONSOLE_SCREEN_BUFFER_INFOEX))
+	{
+		CONSOLE_SCREEN_BUFFER_INFO *ptr = (CONSOLE_SCREEN_BUFFER_INFO *)(((char *)pInfo) + sizeof(ULONG));
+		success = GetConsoleScreenBufferInfo(h, ptr);
+		if (success)
+		{
+			pInfo->bFullscreenSupported = FALSE;
+			pInfo->wPopupAttributes = 0;
+			memset(pInfo->ColorTable, '\0', sizeof(pInfo->ColorTable));
+		}
+	}
+	return success;
+}
+
+static BOOL WINAPI SetConsoleScreenBufferInfoExPtr_pFill(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInfo)
+{
+
+	BOOL success = FALSE;
+	if (pInfo && pInfo->cbSize == sizeof(CONSOLE_SCREEN_BUFFER_INFOEX))
+	{
+		success = success && SetConsoleScreenBufferSize(h, pInfo->dwSize);
+		success = success && SetConsoleWindowInfo(h, TRUE, &(pInfo->srWindow));
+		success = success && SetConsoleTextAttribute(h, pInfo->wAttributes);
+		success = success && SetConsoleCursorPosition(h, pInfo->dwCursorPosition);
+	}
+	return success;
+}
+
+static void initAPI()
+{
+	HMODULE hLibKernel = GetModuleHandle("kernel32.dll");
+	if (hLibKernel)
+	{
+		FARPROC p1 = GetProcAddress(hLibKernel, "GetConsoleScreenBufferInfoEx");
+		FARPROC p2 = GetProcAddress(hLibKernel, "SetConsoleScreenBufferInfoEx");
+		if (p1 && p2)
+		{
+			getConsoleScreenBufferInfoEx = (GetConsoleScreenBufferInfoExPtr)p1;
+			setConsoleScreenBufferInfoEx = (SetConsoleScreenBufferInfoExPtr)p2;
+		}
+	}
+}
+
 #endif

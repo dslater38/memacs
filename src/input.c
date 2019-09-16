@@ -268,7 +268,7 @@ int maxlen;		/* maximum length of input field */
 			mlwrite("%s: ", prompt);
 
 	/* build a name string from the keyboard */
-	while (TRUE) {
+	for (;;) {
 
 		/* get the keystroke and decode it */
 		ec = get_key();

@@ -789,7 +789,7 @@ static void PASCAL  SimulateExtendedKey (int ec)
 BOOL FAR PASCAL MenuCommand (WPARAM wParam, LPARAM lParam)
 {
     DLGPROC     ProcInstance;
-#if WINXP
+#ifdef WIN32
     char        HelpTopic[NFILEN + NFILEN + 2];
 #else
     DWORD       HelpContext;
@@ -822,7 +822,7 @@ BOOL FAR PASCAL MenuCommand (WPARAM wParam, LPARAM lParam)
 	SimulateExtendedKey (abortc);
 	break;
 	
-#if WINXP
+#ifdef WIN32
 	case IDM_WHELPINDEX:
 		strcpy(HelpTopic, MainHelpFile);
 		strcat(HelpTopic, "::/html/help7jnc.htm");
@@ -945,7 +945,7 @@ static int PASCAL   MenuEntryCount (HMENU hMenu)
 
     Count = GetMenuItemCount (hMenu);
     if (hMenu == GetMenu (hFrameWnd)) {
-#if WINDOW_MSWIN32
+#ifdef WIN32
 		if (GetWindowLongPtr((HWND)SendMessage(hMDIClientWnd, WM_MDIGETACTIVE, 0, 0), GWL_STYLE) & WS_MAXIMIZE) {
 #else
         if (HIWORD(SendMessage (hMDIClientWnd, WM_MDIGETACTIVE, 0, 0L))) {
@@ -964,7 +964,7 @@ static int PASCAL   MenuEntryCount (HMENU hMenu)
 static int PASCAL   MenuEntryOffset (HMENU hMenu)
 {
     if (hMenu == GetMenu (hFrameWnd)) {
-#if WINDOW_MSWIN32
+#ifdef WIN32
 		if (GetWindowLongPtr((HWND)SendMessage(hMDIClientWnd, WM_MDIGETACTIVE, 0, 0), GWL_STYLE) & WS_MAXIMIZE) {
 #else
         if (HIWORD(SendMessage (hMDIClientWnd, WM_MDIGETACTIVE, 0, 0L))) {

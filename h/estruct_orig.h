@@ -52,8 +52,7 @@
 #define HPUX9	0			/* HPUX HP 9000 ver 9           */
 #define MPE	0			/* HP MPE/XL			*/
 #define MSDOS	0			/* MS-DOS			*/
-#define WINNT	0			/* MS-Win NT			*/
-#define	WINXP	1			/* Windows XP/Visual studio 2008*/
+#define WINNT	1			/* MS-Win NT			*/
 #define OS2	0			/* Microsoft or IBM OS/2	*/
 #define SMOS	0			/* Supermax UNIX System V	*/
 #define SUN	0			/* SUN v4.0			*/
@@ -122,16 +121,14 @@
 #define TERMCAP 0			/* Use TERMCAP			*/
 #define TIPC	0			/* TI Profesional PC driver	*/
 #define VT52	0			/* VT52 terminal (Zenith).	*/
-#define NTCON	0			/* Windows NT console		*/
-#define	XPCON	1			/* windows XP console app	*/
+#define NTCON	1			/* Windows NT console		*/
 #define	XVT	0			/* XVT windowing system		*/
 #define Z309	0			/* Zenith 100 PC family driver	*/
 
 /*	Windowing system style (pick one)				*/
 
 #define WINDOW_TEXT	0		/* [default] Text mode		*/
-#define WINDOW_MSWIN	0		/* MicroSoft Windows		*/
-#define WINDOW_MSWIN32	1		/* MicroSoft Windows 32 bit API */
+#define WINDOW_MSWIN	1		/* MicroSoft Windows		*/
 #define WINDOW_X	0		/* X/Unix			*/
 
 /*	Language text options	(pick one)				*/
@@ -265,19 +262,29 @@
 
 /* MS-Windows */
 
-#if     WINNT || WINDOW_MSWIN || WINDOW_MSWIN32
-#if     WINDOW_MSWIN32
-#undef  WINDOW_MSWIN
-#define WINDOW_MSWIN    1
-#endif
-#if     WINDOW_MSWIN && (WINNT || WINXP)
-#undef  WINDOW_MSWIN32
-#define WINDOW_MSWIN32  1
-#endif
+#if WINNT || WINDOW_MSWIN
 #if 1
 #undef  MAC     /* Mac conflicts with a definition used by rpc.h */
 #undef  VOID    /* windows.h will wind up defining this when compiled as a console app */
 #include <windows.h>    /* --------- Huge include file here !!! ---------*/
+
+/* if SetWindowLongPtr isn't defined, then assume we're using an old compiler */
+/* That is either 32-bit or 16-bit. In either case, just define the new API names */
+/* to be the old API names instead of lettering the code with a bunch of ifdefs */
+#ifndef SetWindowLongPtr
+
+#define SetWindowLongPtr SetWindowLong
+#define GetWindowLongPtr GetWindowLong
+#define LRESULT LONG
+#define DWORD_PTR DWORD
+#define LONG_PTR LONG
+#define INT_PTR int
+#define intptr_t int
+#define UINT_PTR UINT
+#define GWLP_WNDPROC GWL_WNDPROC
+
+#endif
+
 #ifndef VOID
 #define VOID void /* Redefine, incase we are compiled as a Windows app */
 #endif
@@ -285,7 +292,7 @@
 #if     NTCON
 #include <WinCon.h>
 #include <stdio.h>
-#include <dos.h>
+// #include <dos.h>
 #endif
 
 #undef NEAR
@@ -305,7 +312,7 @@
 #endif
 #endif
 
-#if	(WINNT || WINXP) && !WINDOW_MSWIN
+#if	WINNT && !WINDOW_MSWIN
 #define	EXPORT	/* Windows NT doesn't like this */
 #endif
 
@@ -314,8 +321,8 @@
 #define TYPEAH  0   /* typeahead is handled at the term driver level */
 #undef  CALLED
 #define CALLED  1   /* under MS Windows, "main" resides in the sys driver */
-#if     WINNT || WINXP
-#define	EXPORT	/* Windows NT doesn't like this */
+#if     defined(WIN32)
+#define	EXPORT	__declspec(dllexport)/* Windows NT doesn't like this */
 #elif   MSC
 #define EXPORT  __export
 #else
@@ -467,13 +474,13 @@ union REGS {
 
 /*	define some ability flags */
 
-#if	(IBMPC | Z309 | FMR | TIPC) & !(WINDOW_MSWIN | WINDOW_MSWIN32)
+#if	(IBMPC | Z309 | FMR | TIPC) & !WINDOW_MSWIN
 #define MEMMAP	1
 #else
 #define MEMMAP	0
 #endif
 
-#if	MSDOS | WINNT | WINXP | OS2 | USG | AIX | AUX | SMOS | HPUX8 | HPUX9 | BSD | FREEBSD | (TOS & MWC) | WMCS | SUN | MPE
+#if	MSDOS | WINNT | OS2 | USG | AIX | AUX | SMOS | HPUX8 | HPUX9 | BSD | FREEBSD | (TOS & MWC) | WMCS | SUN | MPE
 #define ENVFUNC 1
 #else
 #define ENVFUNC 0
@@ -489,7 +496,7 @@ union REGS {
 #define DIRSEPSTR	"."
 #define DIRSEPCHAR	'.'
 #else
-#if	TOS || MSDOS || WINNT || WINXP || OS2
+#if	TOS || MSDOS || WINNT || OS2
 #define DIRSEPSTR	"\\"
 #define DIRSEPCHAR	'\\'
 #define DRIVESEPCHAR	':'
@@ -526,8 +533,8 @@ union REGS {
 /*	internal constants	*/
 
 #define NBINDS	300			/* max # of bound keys		*/
-#if	AOSVS | VMS | WINNT | WINXP | SUN | BSD | FREEBSD | USG | ZENIX | HPUX8 | HPUX9 | OS2
-#if WINNT | WINXP
+#if	AOSVS | VMS | WINNT | SUN | BSD | FREEBSD | USG | ZENIX | HPUX8 | HPUX9 | OS2
+#if WINNT
 #define NFILEN	MAX_PATH
 #else
 #define NFILEN	256
