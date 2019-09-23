@@ -2,11 +2,13 @@
 #define ESTRUCT_H_INCLUDED
 
 #if defined(BUILD_MSWIN)
-#include "mswin/estruct.h"
+#	include "mswin/estruct.h"
 #elif defined(BUILD_NTCONSOLE)
-#include "nt/estruct.h"
+#	include "nt/estruct.h"
+elif defined(BUILD_LINUX)
+#	include "linux/estruct.h"
 #else
-#include "estruct_orig.h"
+#	include "estruct_orig.h"
 #endif
 
 #endif

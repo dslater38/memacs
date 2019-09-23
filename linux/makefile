@@ -15,7 +15,7 @@ HDIR = ../h
 # options and arguments to the C compiler
 
 #CFLAGS += -I. -I$(HDIR)
-CFLAGS = -O2 -I. -I$(HDIR)
+CFLAGS = -O2 -I. -I$(HDIR) -DBUILD_LINUX
 
 #list of object files
 
