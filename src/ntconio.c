@@ -1,11 +1,11 @@
 /*      NTCONIO.C       Operating specific video & keyboard functions
- *                      for the Window NT operating system (console mode)
- *                      for MicroEMACS 4.00
- *                      (C)Copyright 1995 by Daniel M. Lawrence
+ *                      for the Window NT/XP operating system (console mode)
+ *                      for MicroEMACS 5.00
+ *                      (C)Copyright 1995-2008 by Daniel M. Lawrence
  *                      Windows NT version by Walter Warniaha
  *
  * The routines in this file provide video and keyboard support using the
- * Windows NT console functions.
+ * Windows NT/XP/Visual Studio 2008 console functions.
  *
  */
 
@@ -21,11 +21,48 @@
 #include        "elang.h"
 
 #if     NTCON
-#define NROW    50             /* Screen size.                 */
-#define NCOL    132             /* Edit if you want to.         */
+#define NROW    256              /* Max Screen size.         */
+#define NCOL    256             /* Edit if you want to.         */
 #define MARGIN  8               /* size of minimim margin and   */
 #define SCRSIZ  64              /* scroll size for extended lines */
 #define NPAUSE  5               /* # times thru update to pause */
+
+ /* CONSOLE_SCREEN_BUFFER_INFOEX is defined in consoleapi2.h, which is part of newer VS versions*/
+/* Use FORCE_DEFINE_CONSOLE_SCREEN_BUFFER_INFOEX to force the inclusion of this definition */
+/* Use NO_DEFINE_CONSOLE_SCREEN_BUFFER_INFOEX to force the exclusion of this definition */
+/* _CONSOLE_SCREEN_BUFFER_INFOEX first shows up in visual studio 2008 - version 15 of the compiler. */
+#if ( (_MSC_VER < 1500) || defined(FORCE_DEFINE_CONSOLE_SCREEN_BUFFER_INFOEX)) && !defined(NO_DEFINE_CONSOLE_SCREEN_BUFFER_INFOEX)
+
+typedef struct _CONSOLE_SCREEN_BUFFER_INFOEX {
+	ULONG cbSize;
+	COORD dwSize;
+	COORD dwCursorPosition;
+	WORD wAttributes;
+	SMALL_RECT srWindow;
+	COORD dwMaximumWindowSize;
+	WORD wPopupAttributes;
+	BOOL bFullscreenSupported;
+	COLORREF ColorTable[16];
+} CONSOLE_SCREEN_BUFFER_INFOEX, *PCONSOLE_SCREEN_BUFFER_INFOEX;
+
+#endif
+
+/* Poly fills when running on an older OS*/
+static BOOL WINAPI GetConsoleScreenBufferInfoExPtr_pFill(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInfo);
+static BOOL WINAPI SetConsoleScreenBufferInfoExPtr_pFill(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInfo);
+
+typedef BOOL(WINAPI *GetConsoleScreenBufferInfoExPtr)(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInfo);
+typedef BOOL(WINAPI *SetConsoleScreenBufferInfoExPtr)(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInof);
+
+/* These are the function pointers used in this file. Initialized to the polyfils to ensure they're always valid.  */
+static GetConsoleScreenBufferInfoExPtr getConsoleScreenBufferInfoEx = GetConsoleScreenBufferInfoExPtr_pFill;
+static SetConsoleScreenBufferInfoExPtr setConsoleScreenBufferInfoEx = SetConsoleScreenBufferInfoExPtr_pFill;
+
+/* Dynamically load GetConsoleScreenBufferInfoExPtr/SetConsoleScreenBufferInfoExPtr from kernel32.dll if available*/
+static void initAPI();
+
+int win_version = WINVER;
+int win32_winnt = _WIN32_WINNT;
 
 /* Forward references.          */
 
@@ -51,11 +88,7 @@ int PASCAL NEAR fnclabel();
 static WORD near ntAttribute(void);
 
 /* Screen buffer to write to. */
-#ifdef RESIZABLE_BUFFER
-static CHAR_INFO *ciScreenBuffer = NULL;
-#else
-static CHAR_INFO ciScreenBuffer[(NROW+1) * NCOL];
-#endif
+static CHAR_INFO ciScreenBuffer[NROW * NCOL];
 static int      cfcolor = 0;    /* current foreground color     */
 static int      cbcolor = 15;   /* current background color     */
 static int      ctrans[] =      /* ansi to ibm color translation table  */
@@ -67,6 +100,9 @@ static WORD ntMax = 0;
 static WORD ntMin = (WORD)-1;
 static WORD ntColMax = 0;
 static WORD ntColMin = (WORD)-1;
+
+static int lastwrow;		/* last window's row size */
+static int lastwcol;
 
 int revflag = FALSE;                    /* are we currently in rev video? */
 
@@ -84,8 +120,8 @@ static WORD wKeyEvent;
  * Standard terminal interface dispatch table.
  */
 TERM    term    = {
-        NROW,
-        NROW,
+        NROW-1,
+        NROW-1,
         NCOL,
         NCOL,
         0, 0,
@@ -351,12 +387,21 @@ static int near MouseEvent(INPUT_RECORD *pIr)
 	return(FALSE);
 }
 
-static void near WindowSizeEvent(INPUT_RECORD *pIr)
+static void near WindowSizeEvent()
 {
-	term.t_nrow = pIr->Event.WindowBufferSizeEvent.dwSize.Y - 1;
-	term.t_ncol = pIr->Event.WindowBufferSizeEvent.dwSize.X;
-	ntflush();
-	SetConsoleTitle("WindowSizeEvent");
+	CONSOLE_SCREEN_BUFFER_INFO Console;
+
+	GetConsoleScreenBufferInfo(hOutput, &Console);
+
+	in_put(0);
+	in_put(MOUS >> 8);
+	in_put(Console.srWindow.Right+1);
+	in_put(Console.srWindow.Bottom);
+	in_put('2');
+
+	/* remeber this size */
+	lastwrow = Console.srWindow.Bottom;
+	lastwcol = Console.srWindow.Right+1;
 }
 
 /* handle the current keyboard event */
@@ -484,20 +529,49 @@ pastothers:	/* shifted special key? */
 
 }
 
+int PendingScreenResize()
+
+{
+	CONSOLE_SCREEN_BUFFER_INFO Console;
+
+	GetConsoleScreenBufferInfo(hOutput, &Console);
+
+	if ((lastwrow != Console.srWindow.Bottom) || (lastwcol != Console.srWindow.Right + 1)) {
+		return(TRUE);
+	} else {
+		return(FALSE);
+	}
+}
 /*----------------------------------------------------------------------*/
 /*	ntgetc()							*/
 /* Get a character from the keyboard.					*/
 /*----------------------------------------------------------------------*/
-
 #define MAX_INPUT_EVENTS 128
+#define INPUT_WINDOW_SIZE 0
+#define INPUT_KEYBOARD_READY 1
 
-int PASCAL NEAR ntgetc(void)
+static
+int WaitForInput()
 {
+	/* wait for input for a short time */
+	while(WaitForSingleObject(hInput, 40) == WAIT_TIMEOUT)
+	{
+		/* check to see if the console window has been resized */
+		if(PendingScreenResize())
+		{
+			return INPUT_WINDOW_SIZE;
+		}
+	}
+	return INPUT_KEYBOARD_READY;
+}
 
-	DWORD dw;
+int PASCAL NEAR ntgetc()
+{
+	DWORD dw = 0;
 	INPUT_RECORD ir[MAX_INPUT_EVENTS];
 	BOOL success = FALSE;
 	DWORD i;
+
 
 	for(;;)
 	{
@@ -508,6 +582,12 @@ int PASCAL NEAR ntgetc(void)
 		   type ahead buffer */
 		if(in_check())
 			return(in_get());
+
+		if(INPUT_WINDOW_SIZE == WaitForInput())
+		{
+			WindowSizeEvent();
+			continue;
+		}
 
 		/* get the next keyboard/mouse/resize event */
 
@@ -532,7 +612,7 @@ int PASCAL NEAR ntgetc(void)
 				break;
 
 			case WINDOW_BUFFER_SIZE_EVENT:
-				WindowSizeEvent(pIr);
+				WindowSizeEvent();
 				break;
 
 			case MENU_EVENT:
@@ -597,6 +677,17 @@ printf("UNKNOWN event pending\n");
 
 	return(dwCount ? TRUE : FALSE);
 }
+
+int PASCAL NEAR xp_typahead()
+
+{
+	/* anything waiting in the input queue? */
+	if (in_check())
+		return(TRUE);
+
+	return(FALSE);
+}
+
 #endif
 
 static WORD near ntAttribute(void)
@@ -620,7 +711,7 @@ int PASCAL NEAR ntputc(int c)
 {
 	WORD wScreenPos;
 
-	/* This is TEMPORARY  no characters before the screen!!! */
+	/* only characters on screen!!! */
 	if (ntcol < 0 || ntcol > 32000)
 			return TRUE;
 
@@ -656,7 +747,7 @@ int PASCAL NEAR nteeol(void)
 	WORD wScreenPos;
 	WORD wAttribute;
 
-	/* This is TEMPORARY  no characters before the screen!!! */
+	/* only characters on screen!!! */
 	if (ntcol < 0 || ntcol > 32000)
 			return TRUE;
 
@@ -740,7 +831,7 @@ int PASCAL NEAR spal(char *dummy)
 
 int PASCAL NEAR ntbeep(void)
 {
-//	  _beep(1200, 80);
+	Beep(750, 300);
 	return(TRUE);
 }
 
@@ -754,26 +845,30 @@ int PASCAL NEAR ntopen()
 	CONSOLE_SCREEN_BUFFER_INFOEX Console = { 0 };
 	Console.cbSize = sizeof(CONSOLE_SCREEN_BUFFER_INFOEX);
 
+	initAPI();
+
+
+	/* This will allocate a console if started from
+	/* the windows NT program manager. */
+	AllocConsole();
+
+
 	/* Get our standard handles */
 	hInput = GetStdHandle(STD_INPUT_HANDLE);
 	hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
 	/* Store the original console info */
-	success = GetConsoleScreenBufferInfoEx(hOutput, &Console);
+	success = getConsoleScreenBufferInfoEx(hOutput, &Console);
 
 	OldConsoleInfo = Console;
 
 	/* Save the titlebar of the window so we can
 		* restore it when we leave. */
-	success = GetConsoleTitle(chConsoleTitle, sizeof(chConsoleTitle));
+	success = GetConsoleTitle(chConsoleTitle, sizeof(chConsoleTitle)/sizeof(chConsoleTitle[0]));
 
 
 	/* initialize the input queue */
 	in_init();
 	strcpy(os, "WINNT");
-
-	/* This will allocate a console if started from
-		* the windows NT program manager. */
-	/* AllocConsole(); */
 
 
 
@@ -792,25 +887,35 @@ int PASCAL NEAR ntopen()
 	ciScreenBuffer = malloc((term.t_nrow*term.t_ncol) * sizeof(CHAR_INFO));
 
 #else
-	term.t_nrow = NROW;
-	term.t_ncol = NCOL;
+	term.t_nrow = Console.srWindow.Bottom;
+	term.t_ncol = Console.srWindow.Right + 1;
+	term.t_mrow = NROW - 1;
+	term.t_mcol = NCOL;
+	if (term.t_nrow > term.t_mrow)
+		term.t_nrow = term.t_mrow;
+	if (term.t_ncol > term.t_mcol)
+		term.t_ncol = term.t_mcol;
 #endif
+#if 0
+  
 	term.t_mrow = term.t_nrow;
 	term.t_mcol = term.t_ncol;
-
-	Console.dwSize.Y = term.t_nrow;
+#endif  
+  
+	Console.dwSize.Y = term.t_nrow+1;
 	Console.dwSize.X = term.t_ncol;
-	Console.srWindow.Bottom = Console.srWindow.Top + term.t_nrow;
-	Console.srWindow.Right = Console.srWindow.Left + term.t_ncol;
+	Console.srWindow.Bottom = Console.srWindow.Top + Console.dwSize.Y;
+	Console.srWindow.Right = Console.srWindow.Left + Console.dwSize.X;
 	Console.dwMaximumWindowSize.X = Console.dwSize.X;
 	Console.dwMaximumWindowSize.Y = Console.dwSize.Y;
-	Console.bFullscreenSupported = TRUE;
-
 	Console.wAttributes = (FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+	Console.bFullscreenSupported = TRUE;
+	success = setConsoleScreenBufferInfoEx(hOutput, &Console);
 
 
-	success = SetConsoleScreenBufferInfoEx(hOutput, &Console);
-
+	/* remeber this size */
+	lastwrow = term.t_nrow;
+	lastwcol = term.t_ncol;
 
 	ntColMin = ntMin = (WORD)-1;
 	ntColMax = ntMax = 0;
@@ -825,10 +930,12 @@ int PASCAL NEAR ntopen()
 	revexist = TRUE;
 	revflag = FALSE;
 	eolexist = TRUE;
-	/*	gfcolor = 15;
-		gbcolor = 0;*/
+/*	gfcolor = 15;
+	gbcolor = 0;*/
 	cfcolor = 7;
 	cbcolor = 0;
+
+	SetConsoleOutputCP(437);	/* this does not seem to give me the old IBMPC character set.... */
 
 	return(TRUE);
 }
@@ -841,14 +948,16 @@ int PASCAL NEAR ntopen()
 int PASCAL NEAR ntclose(void)
 {
 	/* reset the title on the window */
+
 	SetConsoleTitle(chConsoleTitle);
 
-	if(OldConsoleInfo.cbSize == sizeof(CONSOLE_SCREEN_BUFFER_INFOEX))
+	if(OldConsoleInfo.dwSize.X > 0 )
 	{
-		SetConsoleScreenBufferInfoEx(hOutput, &OldConsoleInfo);
+		setConsoleScreenBufferInfoEx(hOutput, &OldConsoleInfo);
+
 	}
 
-	/* FreeConsole(); */
+	FreeConsole();
 	return(TRUE);
 }
 
@@ -865,8 +974,9 @@ int PASCAL NEAR ntkopen(void)
 	/* and reset this to what MicroEMACS needs */
 	ConsoleMode = OldConsoleMode;
 	ConsoleMode &= ~(ENABLE_PROCESSED_INPUT | ENABLE_LINE_INPUT |
-		ENABLE_ECHO_INPUT | ENABLE_WINDOW_INPUT | ENABLE_QUICK_EDIT_MODE);
+		ENABLE_ECHO_INPUT | ENABLE_WINDOW_INPUT /* | ENABLE_QUICK_EDIT_MODE*/ );
 	ConsoleMode |= (ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT);
+  
 	SetConsoleMode(hInput, ConsoleMode);
 
 	return(TRUE);
@@ -895,4 +1005,51 @@ int f,n;	/* default flag, numeric argument [unused] */
 	return(TRUE);
 }
 #endif
+
+static BOOL WINAPI GetConsoleScreenBufferInfoExPtr_pFill(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInfo)
+{
+	BOOL success = FALSE;
+	if (pInfo && pInfo->cbSize == sizeof(CONSOLE_SCREEN_BUFFER_INFOEX))
+	{
+		CONSOLE_SCREEN_BUFFER_INFO *ptr = (CONSOLE_SCREEN_BUFFER_INFO *)(((char *)pInfo) + sizeof(ULONG));
+		success = GetConsoleScreenBufferInfo(h, ptr);
+		if (success)
+		{
+			pInfo->bFullscreenSupported = FALSE;
+			pInfo->wPopupAttributes = 0;
+			memset(pInfo->ColorTable, '\0', sizeof(pInfo->ColorTable));
+		}
+	}
+	return success;
+}
+
+static BOOL WINAPI SetConsoleScreenBufferInfoExPtr_pFill(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInfo)
+{
+
+	BOOL success = FALSE;
+	if (pInfo && pInfo->cbSize == sizeof(CONSOLE_SCREEN_BUFFER_INFOEX))
+	{
+		success = success && SetConsoleScreenBufferSize(h, pInfo->dwSize);
+		success = success && SetConsoleWindowInfo(h, TRUE, &(pInfo->srWindow));
+		success = success && SetConsoleTextAttribute(h, pInfo->wAttributes);
+		success = success && SetConsoleCursorPosition(h, pInfo->dwCursorPosition);
+	}
+	return success;
+}
+
+static void initAPI()
+{
+	HMODULE hLibKernel = GetModuleHandle("kernel32.dll");
+	if (hLibKernel)
+	{
+		FARPROC p1 = GetProcAddress(hLibKernel, "GetConsoleScreenBufferInfoEx");
+		FARPROC p2 = GetProcAddress(hLibKernel, "SetConsoleScreenBufferInfoEx");
+		if (p1 && p2)
+		{
+			getConsoleScreenBufferInfoEx = (GetConsoleScreenBufferInfoExPtr)p1;
+			setConsoleScreenBufferInfoEx = (SetConsoleScreenBufferInfoExPtr)p2;
+		}
+	}
+}
+
 #endif

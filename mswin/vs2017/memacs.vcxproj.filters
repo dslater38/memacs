@@ -84,7 +84,7 @@
     <ClInclude Include="..\targetver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\resource.h">
+    <ClInclude Include="..\estruct.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

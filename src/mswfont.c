@@ -403,7 +403,7 @@ INT_PTR EXPORT FAR PASCAL  FontDlgProc (HWND hDlg, UINT wMsg, WPARAM wParam,
 
 	    id = (Metrics.tmCharSet == ANSI_CHARSET ? ID_ANSI : ID_OEM);
 	    SendMessage (hDlg, WM_COMMAND,
-#if WINDOW_MSWIN32
+#ifdef WIN32
                          MAKELONG(id, BN_CLICKED), (LONG_PTR)GetDlgItem (hDlg, id));
 #else
                          id, MAKELONG(GetDlgItem (hDlg, id), BN_CLICKED));
@@ -546,6 +546,8 @@ static void PASCAL ChangeFont (void)
                 Rect.right, Rect.bottom - EmacsCM.MLHeight,
                 TRUE);
 } /* ChangeFont */
+   
+#ifdef WIN32
 
 static
 BOOL choose_font()
@@ -554,7 +556,18 @@ BOOL choose_font()
 	CHOOSEFONT cf = { 0 };
 	BOOL success = FALSE;
 
-	GetObject(hEmacsFont, sizeof(LOGFONT), &lf);
+	if (hEmacsFont != NULL)
+	{
+		GetObject(hEmacsFont, sizeof(LOGFONT), &lf);
+	}
+	else
+	{
+		HFONT hFont = (HFONT)GetStockObject(SYSTEM_FIXED_FONT);
+		if (hFont)
+		{
+			GetObject(hFont, sizeof(LOGFONT), &lf);
+		}
+	}
 
 	cf.lStructSize = sizeof(CHOOSEFONT);
 	cf.hwndOwner = hFrameWnd;
@@ -578,6 +591,8 @@ BOOL choose_font()
 	return success;
 }
 
+#endif
+
 /* PickEmacsFont:   calls-up the FONTS dialog box */
 /* =============                                  */
 
@@ -585,15 +600,15 @@ BOOL FAR PASCAL PickEmacsFont (void)
 
 /* returns TRUE is a new font has been picked */
 {
-#if WINVER >= _WIN32_WINNT_WIN2K
+    BOOL    FontChanged;
+    DLGPROC ProcInstance;
+#ifdef WIN32
 	static int newway = 0;
 	if(newway)
 	{
 		return choose_font();
 	}
 #endif
-    BOOL    FontChanged;
-    DLGPROC ProcInstance;
 
     ProcInstance = MakeProcInstance (FontDlgProc,
 				     hEmacsInstance);
@@ -650,7 +665,7 @@ void FAR PASCAL FontInit (void)
         hEmacsFont = CreateFontIndirect (&lf);
     }
     else {  /* no CharSet entry, default to SYSTEM_FIXED_FONT */
-	hEmacsFont = 0;
+	hEmacsFont = (HFONT)GetStockObject(SYSTEM_FIXED_FONT);
     }
     BuildCellMetrics (&EmacsCM, hEmacsFont);
 } /* FontInit */

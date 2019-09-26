@@ -17,11 +17,7 @@
 #include    "mswin.h"
 #include    "mswhelp.h"
 
-#if WINDOW_MSWIN32
-#include <setjmp.h>
-#endif
 
-#define MAXPARAM    10      /* max command line parameters */
 #define TXTSIZ      NFILEN  /* all purpose string length */
 #define T_SLEEP      1      /* Sleep timer ID */
 
@@ -31,16 +27,37 @@
 #define EMACS_ENDING    2
 
 /* variables */
-static char     *argv[MAXPARAM];
+static char     **argv = NULL;
 static int      argc;
 
 static char FrameClassName [] = PROGNAME ":frame";
 
-#if WINDOW_MSWIN32
+#ifdef WIN32
+#define MEWIN_HELP_FILE "mewin.chm"
+#else
+#define MEWIN_HELP_FILE "mewin.hlp"
+#endif
+
+#ifdef WIN32
+
+#ifndef WM_MOUSEWHEEL
+#define WM_MOUSEWHEEL 0x020A
+#endif
+
+#define USE_SEH 1
+#ifdef USE_SEH
+/* Raise an EXCEPTION_MLABORT instead of longjmp */
+#define EXCEPTION_MLABORT (0xE0000001)
+
+#else
+
 /* The Catch/Throw API is replaced by setjmp/longjmp */
 static jmp_buf ExitCatchBuf;
 #define Throw(buf,n) longjmp(buf,n)
 #define Catch(buf)   setjmp(buf)
+
+#endif
+
 #else
 static CATCHBUF ExitCatchBuf;
 #endif
@@ -76,7 +93,7 @@ char *PASCAL timeset()
 
     time(&buf);
     sp = ctime(&buf);
-    sp[strlen(sp)-1] = 0;
+    sp[strlen(sp)-1] = 0;	/* replace the terminating newline */
     return(sp);
 }
 
@@ -152,10 +169,70 @@ VOID PASCAL NEAR mlabort (char *s)
                     MB_YESNO | MB_DEFBUTTON2 |
                     MB_ICONHAND | MB_APPLMODAL) == IDYES) {
         eexitval = -1;
+#ifdef USE_SEH
+		RaiseException(EXCEPTION_MLABORT, 0, 0, NULL);
+#else
         Throw (ExitCatchBuf, ABORT);
+#endif
      }
 } /* mlabort */
-
+
+
+/* parse the windows command line into argv style*/
+
+int parseCommandLine(LPSTR lpCmdLine)
+{
+	char   *s = NULL;
+	size_t nMaxArgs = 10;      
+	argc = 0;
+	argv = (char **)malloc(nMaxArgs * sizeof(char *));
+	if (!argv)
+	{
+		return 0;
+	}
+	argv[0] = ProgName;
+	argc = 1;
+	s = copystr(lpCmdLine);
+	if (!s)
+	{
+		free(argv);
+		argv = NULL;
+		return 0;
+	}
+	while (*s != '\0') {
+		argv[argc] = s;
+		if (++argc >= (int)nMaxArgs)
+		{
+			char **tmp = NULL;
+			nMaxArgs += 10;
+			tmp = (char **)realloc(argv, nMaxArgs * sizeof(char *));
+			if (tmp)
+			{
+				argv = tmp;
+			}
+			else
+			{
+				free(argv);
+				free(s);
+				argv = NULL;
+				s = NULL;
+				return 0;
+			}
+		}
+		while (*++s != ' ')
+		{
+			if (*s == '\0')
+			{
+				return argc;
+			}
+		}
+		*s = '\0';
+		while (*++s == ' ');
+	}
+	return argc;
+}
+
+
 /* WinInit: all the window initialization crap... */
 /* =======                                        */
 
@@ -173,7 +250,7 @@ BOOL FAR PASCAL WinInit (LPSTR lpCmdLine, int nCmdShow)
     WORD        w;
 
     InitializeFarStorage ();
-#if WINDOW_MSWIN32
+#ifdef WIN32
     Win386Enhanced = FALSE;
     Win31API = TRUE;
 	((void)w);	/* unreferenced local variable warning */
@@ -199,11 +276,7 @@ BOOL FAR PASCAL WinInit (LPSTR lpCmdLine, int nCmdShow)
     if (!MainHelpFile) {    /* default WinHelp file name */
         if (i > 0) text[i+1] = '\0';
         else text[0] = '\0';
-#if WINXP
-        strcat (text, "mewin.chm");
-#else
-        strcat(text, "mewin.hlp");
-#endif
+        strcat (text, MEWIN_HELP_FILE);
         MainHelpFile = copystr (text);
     }
     if (i > 0) {
@@ -328,6 +401,11 @@ BOOL FAR PASCAL WinInit (LPSTR lpCmdLine, int nCmdShow)
 
     in_init ();                 /* sets up the input stream */
 
+	argc = parseCommandLine(lpCmdLine);
+	
+	return argc > 0 ? TRUE : FALSE;
+
+#if 0
     argv [0] = ProgName;        /* dummy program name */
     {
 	register char   *s;
@@ -344,6 +422,7 @@ BOOL FAR PASCAL WinInit (LPSTR lpCmdLine, int nCmdShow)
     }
 ParsingDone:
     return TRUE;
+#endif
 } /* WinInit */
 
 /* SetFrameCaption: sets the frame window's text according to the app Id */
@@ -453,7 +532,9 @@ LRESULT EXPORT FAR PASCAL MDIClientSubProc (HWND hWnd, UINT wMsg, WPARAM wParam,
 				       child (except on caption clicks!)
 				       */
         goto DefaultProc;
-        
+       
+	case WM_CLOSE:
+		return CallWindowProc(MDIClientProc, hWnd, wMsg, wParam, lParam);
     default:
 DefaultProc:
 	return CallWindowProc (MDIClientProc, hWnd, wMsg, wParam, lParam);
@@ -512,15 +593,11 @@ void FAR PASCAL FrameInit (CREATESTRUCT *cs)
     if (hMDIClientWnd) {
         /* we subclass the MDIClient */
 		WNDPROC ProcInstance;
-#if WINXP
+
 		MDIClientProc = (WNDPROC)GetWindowLongPtr(hMDIClientWnd, GWLP_WNDPROC);
 		ProcInstance = MakeProcInstance(MDIClientSubProc, hEmacsInstance);
 		SetWindowLongPtr(hMDIClientWnd, GWLP_WNDPROC, (LONG_PTR)ProcInstance);
-#else
-		MDIClientProc = (WNDPROC)GetWindowLong (hMDIClientWnd, GWL_WNDPROC);
-		ProcInstance = MakeProcInstance ((FARPROC)MDIClientSubProc, hEmacsInstance);
-		SetWindowLong (hMDIClientWnd, GWL_WNDPROC, (DWORD)ProcInstance);
-#endif
+
     }
 } /* FrameInit */
 
@@ -580,21 +657,14 @@ LRESULT EXPORT FAR PASCAL ScrWndProc (HWND hWnd, UINT wMsg, WPARAM wParam,
 
 	    sp = (SCREEN*)(((MDICREATESTRUCT*)(((CREATESTRUCT*)lParam)->
 					       lpCreateParams))->lParam);
-#if WINXP
 		SetWindowLongPtr(hWnd, GWL_SCRPTR, (LONG_PTR)sp);
-#else
-		SetWindowLong (hWnd, GWL_SCRPTR, (LONG)sp);
-#endif
+
 	    sp->s_drvhandle = hWnd;
 	}
 	goto DefaultProc;
 	
     case WM_DESTROY:
-#if WINXP
 		vtfreescr((SCREEN*)GetWindowLongPtr(hWnd, GWL_SCRPTR));
-#else
-		vtfreescr((SCREEN*)GetWindowLong(hWnd, GWL_SCRPTR));
-#endif
 	break;
 	
     case WM_KILLFOCUS:
@@ -608,7 +678,7 @@ LRESULT EXPORT FAR PASCAL ScrWndProc (HWND hWnd, UINT wMsg, WPARAM wParam,
 	goto DefaultProc;
 
     case WM_MDIACTIVATE:
-#if WINDOW_MSWIN32
+#ifdef WIN32
         if ((HWND)lParam == hWnd) {
 #else
 	if (wParam) {
@@ -616,20 +686,13 @@ LRESULT EXPORT FAR PASCAL ScrWndProc (HWND hWnd, UINT wMsg, WPARAM wParam,
             /* this one is becoming active */
 	    if (!InternalRequest) {
 	        InternalRequest = TRUE;
-#if WINXP
 			select_screen((SCREEN*)GetWindowLongPtr(hWnd, GWL_SCRPTR), FALSE);
-#else
-			select_screen((SCREEN*)GetWindowLong(hWnd, GWL_SCRPTR), FALSE);
-#endif
 		InternalRequest = FALSE;
 	    }
 	    else {
 		SCREEN  *sp;
-#if WINXP
 		sp = (SCREEN*)GetWindowLongPtr(hWnd, GWL_SCRPTR);
-#else
-		sp = (SCREEN*)GetWindowLong(hWnd, GWL_SCRPTR);
-#endif
+
 		if (sp->s_virtual == NULL) {
 		    /* this is initialization time! */
 		    vtinitscr (sp, DisplayableRows (hWnd, 0, &EmacsCM),
@@ -659,7 +722,7 @@ LRESULT EXPORT FAR PASCAL ScrWndProc (HWND hWnd, UINT wMsg, WPARAM wParam,
     case WM_RBUTTONUP:
 	MouseMessage (hWnd, wMsg, wParam, lParam);
 	break;
-
+#ifdef WIN32
 	case WM_MOUSEWHEEL:
 		if ((short)HIWORD(wParam) > 0)
 		{
@@ -674,10 +737,11 @@ LRESULT EXPORT FAR PASCAL ScrWndProc (HWND hWnd, UINT wMsg, WPARAM wParam,
 			SendMessage(hWnd, WM_VSCROLL, SB_LINEDOWN, 0); */
 		}
 		break;
+#endif
     case WM_VSCROLL:
     case WM_HSCROLL:
         ScrollMessage (hWnd, wMsg, LOWORD(wParam),
-#if WINDOW_MSWIN32
+#ifdef WIN32
                        (int)HIWORD(wParam));
 #else
                        (int)LOWORD(lParam));
@@ -724,11 +788,8 @@ LRESULT EXPORT FAR PASCAL ScrWndProc (HWND hWnd, UINT wMsg, WPARAM wParam,
 		SCREEN  *sp;
 
 		/* this must be done here, before any MDI mumbo-jumbo */
-#if WINXP
 		sp = (SCREEN*)GetWindowLongPtr(hWnd, GWL_SCRPTR);
-#else
-		sp = (SCREEN*)GetWindowLong(hWnd, GWL_SCRPTR);
-#endif
+
 		if (sp == first_screen) {
 		    cycle_screens (FALSE, 0);
                 }
@@ -824,7 +885,7 @@ LRESULT EXPORT FAR PASCAL FrameWndProc (HWND hWnd, UINT wMsg, WPARAM wParam,
 	    goto DefaultProc;
 	}
 	break;
-	
+#ifdef WIN32	
 	case WM_MOUSEWHEEL:
 		if ((short)HIWORD(wParam) > 0)
 		{
@@ -836,6 +897,7 @@ LRESULT EXPORT FAR PASCAL FrameWndProc (HWND hWnd, UINT wMsg, WPARAM wParam,
 		}
 		break;
 
+#endif
 
     case WM_SETCURSOR:
 	if (UpdateCursor (hWnd, wParam, lParam)) return TRUE;
@@ -859,7 +921,7 @@ LRESULT EXPORT FAR PASCAL FrameWndProc (HWND hWnd, UINT wMsg, WPARAM wParam,
         InvalidateRect (hFrameWnd, NULL, FALSE);
         break;
 
-#if !WINDOW_MSWIN32
+#ifndef WIN32
     case WM_NCLBUTTONDBLCLK:
 	if (Win31API) goto DefaultProc;
 	else {
@@ -913,7 +975,7 @@ LRESULT EXPORT FAR PASCAL FrameWndProc (HWND hWnd, UINT wMsg, WPARAM wParam,
 	break;
 	
     case WM_DESTROY:
-#if WINXP
+#ifdef WIN32
 	if (MainHelpUsed) HtmlHelp (hFrameWnd, MainHelpFile, HH_CLOSE_ALL, 0);
 	if (HelpEngineFile[0] != '\0') HtmlHelp (hFrameWnd, HelpEngineFile,
                                                 HH_CLOSE_ALL, 0);
@@ -962,13 +1024,49 @@ DefaultProc:
 /* WinMain: Application entry point */
 /* =======                          */
 
+#ifdef USE_SEH
+
+int PASCAL  WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
+	LPSTR lpCmdLine, int nCmdShow)
+{
+	int retCode = -1;
+	hEmacsInstance = hInstance;
+	
+	if (WinInit(lpCmdLine, nCmdShow))
+	{
+		__try {
+			emacs(argc, argv);
+			retCode = eexitval;
+			if (argv)
+			{
+				free(argv);
+				argv = NULL;
+			}
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER) {
+			eexitflag = TRUE;
+			retCode = ABORT;
+			longop(FALSE);
+			PostMessage(hFrameWnd, WM_CLOSE, 0, 0L);
+			for (;;) MessageLoop(TRUE);
+		}
+	}
+	return retCode;
+}
+
+#else
+
 int PASCAL  WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance,
                      LPSTR lpCmdLine, int nCmdShow)
 {
+	int code;
     hEmacsInstance = hInstance;
     if (!WinInit (lpCmdLine, nCmdShow)) return -1;
 
-    switch (Catch (ExitCatchBuf)) {
+	code = Catch(ExitCatchBuf);
+
+    switch (code)
+	{
     case 0:
 	emacs (argc, argv);
 	/* If we exit through an emacs command, we pass here. Otherwise
@@ -985,7 +1083,9 @@ int PASCAL  WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance,
     }
     return eexitval;
 } /* WinMain */
-
+
+#endif
+
 /* ModifyCursor:    forces a WM_SETCURSOR */
 /* ============                           */
 
@@ -1039,8 +1139,14 @@ static void  PASCAL MessageLoop (BOOL WaitMode)
 	    }
 	    if (Msg.message == WM_QUIT) {   /* time to leave... */
 	        JettisonFarStorage ();
-	        if (hEmacsFont) DeleteObject (hEmacsFont);
+			if (hEmacsFont) {
+				DeleteObject(hEmacsFont);
+			}
+#ifdef USE_SEH
+			return;
+#else
 	        Throw (ExitCatchBuf, TRUE);
+#endif
 	        /* we're gone out of business ! */
 	        /* **************************** */
 	    }

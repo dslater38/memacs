@@ -1,4 +1,4 @@
-﻿//{{NO_DEPENDENCIES}}
+//{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
 // Used by mewin.rc
 //
@@ -36,8 +36,6 @@
 #define _USE_DECLSPECS_FOR_SAL          0
 #define _USE_ATTRIBUTES_FOR_SAL         0
 #define __drv_typeConst                 0
-#define CREATEPROCESS_MANIFEST_RESOURCE_ID 1
-#define MINIMUM_RESERVED_MANIFEST_RESOURCE_ID 1
 #define SW_SHOWNORMAL                   1
 #define SW_NORMAL                       1
 #define SHOW_OPENWINDOW                 1
@@ -220,7 +218,6 @@
 #define VFF_CURNEDEST                   0x0001
 #define VIFF_FORCEINSTALL               0x0001
 #define WINAPI_FAMILY_PC_APP            2
-#define ISOLATIONAWARE_MANIFEST_RESOURCE_ID 2
 #define SW_SHOWMINIMIZED                2
 #define SHOW_ICONWINDOW                 2
 #define SW_OTHERZOOM                    2
@@ -309,7 +306,6 @@
 #define VFF_FILEINUSE                   0x0002
 #define VIFF_DONTDELETEOLD              0x0002
 #define WINAPI_FAMILY_PHONE_APP         3
-#define ISOLATIONAWARE_NOSTATICIMPORT_MANIFEST_RESOURCE_ID 3
 #define SW_SHOWMAXIMIZED                3
 #define SW_MAXIMIZE                     3
 #define SHOW_FULLSCREEN                 3
@@ -343,7 +339,6 @@
 #define SORT_CHINESE_BOPOMOFO           0x3
 #define __drv_typeExpr                  3
 #define WINAPI_FAMILY_SYSTEM            4
-#define ISOLATIONPOLICY_MANIFEST_RESOURCE_ID 4
 #define SW_SHOWNOACTIVATE               4
 #define SHOW_OPENNOACTIVATE             4
 #define SW_OTHERUNZOOM                  4
@@ -538,7 +533,6 @@
 #define LANG_ICELANDIC                  0x0f
 #define SUBLANG_ARABIC_BAHRAIN          0x0f
 #define SUBLANG_SPANISH_PARAGUAY        0x0f
-#define MAXIMUM_RESERVED_MANIFEST_RESOURCE_ID 16
 #define VK_SHIFT                        0x10
 #define WM_CLOSE                        0x0010
 #define HTBOTTOMLEFT                    16
@@ -576,7 +570,6 @@
 #define VK_MENU                         0x12
 #define WM_QUIT                         0x0012
 #define HTBORDER                        18
-#define CF_MAX                          18
 #define LANG_KOREAN                     0x12
 #define SUBLANG_ENGLISH_SINGAPORE       0x12
 #define SUBLANG_SPANISH_HONDURAS        0x12
@@ -606,7 +599,6 @@
 #define VK_JUNJA                        0x17
 #define LANG_ROMANSH                    0x17
 #define IDM_FILESAVE                    0x017
-#define RT_MANIFEST                     24
 #define VK_FINAL                        0x18
 #define WM_SHOWWINDOW                   0x0018
 #define LANG_ROMANIAN                   0x18
@@ -1150,7 +1142,6 @@
 #define WVR_HREDRAW                     0x0100
 #define HDS_FILTERBAR                   0x0100
 #define TBSTYLE_TOOLTIPS                0x0100
-#define RBS_TOOLTIPS                    0x00000100
 #define TTS_USEVISUALSTYLE              0x100
 #define SBARS_SIZEGRIP                  0x0100
 #define TBS_TOOLTIPS                    0x0100
@@ -1174,7 +1165,7 @@
 #define WM_SYSCHAR                      0x0106
 #define WM_SYSDEADCHAR                  0x0107
 #define WM_UNICHAR                      0x0109
-#define WM_KEYLAST                      0x0109
+/* #define WM_KEYLAST                      0x0109 */
 #define WM_IME_STARTCOMPOSITION         0x010D
 #define WM_IME_ENDCOMPOSITION           0x010E
 #define WM_IME_COMPOSITION              0x010F
@@ -1248,7 +1239,6 @@
 #define CF_PRIVATEFIRST                 0x0200
 #define HDS_FLAT                        0x0200
 #define TBSTYLE_WRAPABLE                0x0200
-#define RBS_VARHEIGHT                   0x00000200
 #define TBS_REVERSED                    0x0200
 #define LVS_EDITLABELS                  0x0200
 #define TVS_TRACKSELECT                 0x0200
@@ -1268,7 +1258,7 @@
 #define WM_XBUTTONUP                    0x020C
 #define WM_XBUTTONDBLCLK                0x020D
 #define WM_MOUSEHWHEEL                  0x020E
-#define WM_MOUSELAST                    0x020E
+/* #define WM_MOUSELAST                    0x020E */
 #define WM_PARENTNOTIFY                 0x0210
 #define WM_ENTERMENULOOP                0x0211
 #define WM_EXITMENULOOP                 0x0212
@@ -1376,15 +1366,13 @@
 #define WM_PENWINFIRST                  0x0380
 #define WM_PENWINLAST                   0x038F
 #define WM_DDE_FIRST                    0x03E0
+#define IDC_SAVEFONT                     1000
 #define CF_GDIOBJLAST                   0x03FF
 #define IDM_NULLPROC                    0x03FF
-#define _WIN32_WINNT_NT4                0x0400
-#define _WIN32_IE_IE40                  0x0400
 #define WM_USER                         0x0400
 #define WVR_VALIDRECTS                  0x0400
 #define HDS_CHECKBOXES                  0x0400
 #define TBSTYLE_ALTDRAG                 0x0400
-#define RBS_BANDBORDERS                 0x00000400
 #define TBS_DOWNISLEFT                  0x0400
 #define LVS_OWNERDRAWFIXED              0x0400
 #define TVS_SINGLEEXPAND                0x0400
@@ -1578,26 +1566,9 @@
 #define ctl1                            0x04A0
 #define IDM_FILTER                      1204
 #define ctlLast                         0x04ff
-#define _WIN32_WINNT_WIN2K              0x0500
-#define _WIN32_IE_IE50                  0x0500
-#define _WIN32_WINNT_WINXP              0x0501
-#define _WIN32_IE_IE501                 0x0501
-#define _WIN32_WINNT_WS03               0x0502
-#define _WIN32_IE_IE55                  0x0550
-#define _WIN32_WINNT_WIN6               0x0600
-#define _WIN32_WINNT_VISTA              0x0600
-#define _WIN32_WINNT_WS08               0x0600
-#define _WIN32_WINNT_LONGHORN           0x0600
-#define _WIN32_IE_IE60                  0x0600
 #define FILEOPENORD                     1536
-#define _WIN32_WINNT_WIN7               0x0601
-#define _WIN32_IE_IE60SP1               0x0601
 #define MULTIFILEOPENORD                1537
-#define _WIN32_WINNT_WIN8               0x0602
-#define _WIN32_IE_WS03                  0x0602
 #define PRINTDLGORD                     1538
-#define _WIN32_WINNT_WINBLUE            0x0603
-#define _WIN32_IE_IE60SP2               0x0603
 #define PRNSETUPDLGORD                  1539
 #define FINDDLGORD                      1540
 #define REPLACEDLGORD                   1541
@@ -1619,7 +1590,6 @@
 #define CS_SAVEBITS                     0x0800
 #define HDS_NOSIZING                    0x0800
 #define TBSTYLE_FLAT                    0x0800
-#define RBS_FIXEDORDER                  0x00000800
 #define SBARS_TOOLTIPS                  0x0800
 #define SBT_TOOLTIPS                    0x0800
 #define TBS_NOTIFYBEFOREMOVE            0x0800
@@ -1627,18 +1597,10 @@
 #define TVS_INFOTIP                     0x0800
 #define TCS_RAGGEDRIGHT                 0x0800
 #define IDM_DYNAMIC                     0x0800
-#define _WIN32_IE_IE90                  0x0900
-#define _WIN32_WINNT_WINTHRESHOLD       0x0A00
-#define _WIN32_WINNT_WIN10              0x0A00
-#define _WIN32_IE_IE100                 0x0A00
-#define _WIN32_IE_IE110                 0x0A00
-#define _WIN32_WINNT                    0x0A00
-#define _WIN32_IE                       0x0A00
 #define LVS_ALIGNMASK                   0x0c00
 #define CS_BYTEALIGNCLIENT              0x1000
 #define HDS_OVERFLOW                    0x1000
 #define TBSTYLE_LIST                    0x1000
-#define RBS_REGISTERDROP                0x00001000
 #define TBS_TRANSPARENTBKGND            0x1000
 #define LVS_OWNERDATA                   0x1000
 #define TVS_FULLROWSELECT               0x1000
@@ -1647,13 +1609,11 @@
 #define IDM_POPUP                       0x1000
 #define CS_BYTEALIGNWINDOW              0x2000
 #define TBSTYLE_CUSTOMERASE             0x2000
-#define RBS_AUTOSIZE                    0x00002000
 #define LVS_NOSCROLL                    0x2000
 #define TVS_NOSCROLL                    0x2000
 #define TCS_OWNERDRAWFIXED              0x2000
 #define CS_GLOBALCLASS                  0x4000
 #define TBSTYLE_REGISTERDROP            0x4000
-#define RBS_VERTICALGRIPPER             0x00004000
 #define LVS_NOCOLUMNHEADER              0x4000
 #define TVS_NONEVENHEIGHT               0x4000
 #define TCS_TOOLTIPS                    0x4000
@@ -1669,23 +1629,16 @@
 #define IDTIMEOUT                       32000
 #define OCR_NORMAL                      32512
 #define OIC_SAMPLE                      32512
-#define IDI_APPLICATION                 32512
 #define OCR_IBEAM                       32513
 #define OIC_HAND                        32513
-#define IDI_HAND                        32513
 #define OCR_WAIT                        32514
 #define OIC_QUES                        32514
-#define IDI_QUESTION                    32514
 #define OCR_CROSS                       32515
 #define OIC_BANG                        32515
-#define IDI_EXCLAMATION                 32515
 #define OCR_UP                          32516
 #define OIC_NOTE                        32516
-#define IDI_ASTERISK                    32516
 #define OIC_WINLOGO                     32517
-#define IDI_WINLOGO                     32517
 #define OIC_SHIELD                      32518
-#define IDI_SHIELD                      32518
 #define OCR_SIZE                        32640
 #define OCR_ICON                        32641
 #define OCR_SIZENWSE                    32642
@@ -1734,7 +1687,6 @@
 #define WM_APP                          0x8000
 #define HELP_TCARD                      0x8000
 #define TBSTYLE_TRANSPARENT             0x8000
-#define RBS_DBLCLKTOGGLE                0x00008000
 #define LVS_NOSORTHEADER                0x8000
 #define TVS_NOHSCROLL                   0x8000
 #define TCS_FOCUSNEVER                  0x8000
@@ -1764,7 +1716,7 @@
 #define UNICODE_NOCHAR                  0xFFFF
 
 // Next default values for new objects
-// 
+//
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        104

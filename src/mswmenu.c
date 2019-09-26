@@ -453,7 +453,7 @@ int  PASCAL GetKeyText (int Key, char *Text, int TextLength)
 	if (*prefix_key_ptr == 0) {
 	    KEYTAB  *KTp;
 
-	    KTp = FindKeyBinding ( (void *)((Key & CTLX) ? cex : meta) );
+	    KTp = FindKeyBinding ( (void *) (intptr_t)((Key & CTLX) ? cex : meta) );
 	    if (KTp->k_type == BINDNUL) return 0;
 	    *prefix_key_ptr = KTp->k_code;
 	}
@@ -565,8 +565,8 @@ void  PASCAL    UpdateMenuItemText (HMENU hMenu, int Position,
     for (i = 0; (NewText[i] != '\0') && (NewText[i] != '\t'); ++i) ;
         /* find the first tab char or the string's end */
 
-    KTp = FindKeyBinding (MTp->m_word & MB_BUF ? (void*)MTp->m_ptr.buf :
-						 (void*)MTp->m_ptr.fp);
+    KTp = FindKeyBinding (MTp->m_word & MB_BUF ? (void*)(intptr_t)MTp->m_ptr.buf :
+						 (void*)(intptr_t)MTp->m_ptr.fp);
     if (KTp->k_type != BINDNUL) {
 	NewText[i] = '\t';
 	if (!GetKeyText (KTp->k_code, &NewText[i+1], MAXMENUTITLE + 1 - i))
@@ -789,7 +789,7 @@ static void PASCAL  SimulateExtendedKey (int ec)
 BOOL FAR PASCAL MenuCommand (WPARAM wParam, LPARAM lParam)
 {
     DLGPROC     ProcInstance;
-#if WINXP
+#ifdef WIN32
     char        HelpTopic[NFILEN + NFILEN + 2];
 #else
     DWORD       HelpContext;
@@ -822,7 +822,7 @@ BOOL FAR PASCAL MenuCommand (WPARAM wParam, LPARAM lParam)
 	SimulateExtendedKey (abortc);
 	break;
 	
-#if WINXP
+#ifdef WIN32
 	case IDM_WHELPINDEX:
 		strcpy(HelpTopic, MainHelpFile);
 		strcat(HelpTopic, "::/html/help7jnc.htm");
@@ -899,11 +899,7 @@ InvokeHelp:
 	case IDM_NORMALIZE:
 	    {
 		SCREEN  *sp;
-#if WINXP
 		sp = (SCREEN*)GetWindowLongPtr((HWND)(SendMessage(hMDIClientWnd, WM_MDIGETACTIVE, 0, 0)), GWL_SCRPTR);
-#else
-		sp = (SCREEN*)GetWindowLong((HWND)(SendMessage (hMDIClientWnd, WM_MDIGETACTIVE, 0, 0L)), GWL_SCRPTR);
-#endif
 		newsize (TRUE, sp->s_nrow);
 		newwidth (TRUE, sp->s_ncol);
 		update (FALSE);
@@ -949,10 +945,8 @@ static int PASCAL   MenuEntryCount (HMENU hMenu)
 
     Count = GetMenuItemCount (hMenu);
     if (hMenu == GetMenu (hFrameWnd)) {
-#if WINXP
+#ifdef WIN32
 		if (GetWindowLongPtr((HWND)SendMessage(hMDIClientWnd, WM_MDIGETACTIVE, 0, 0), GWL_STYLE) & WS_MAXIMIZE) {
-#elif WINDOW_MSWIN32
-		if (GetWindowLong((HWND)SendMessage(hMDIClientWnd, WM_MDIGETACTIVE, 0, 0L), GWL_STYLE) & WS_MAXIMIZE) {
 #else
         if (HIWORD(SendMessage (hMDIClientWnd, WM_MDIGETACTIVE, 0, 0L))) {
 #endif
@@ -970,10 +964,8 @@ static int PASCAL   MenuEntryCount (HMENU hMenu)
 static int PASCAL   MenuEntryOffset (HMENU hMenu)
 {
     if (hMenu == GetMenu (hFrameWnd)) {
-#if WINXP
+#ifdef WIN32
 		if (GetWindowLongPtr((HWND)SendMessage(hMDIClientWnd, WM_MDIGETACTIVE, 0, 0), GWL_STYLE) & WS_MAXIMIZE) {
-#elif WINDOW_MSWIN32
-		if (GetWindowLong((HWND)SendMessage(hMDIClientWnd, WM_MDIGETACTIVE, 0, 0L), GWL_STYLE) & WS_MAXIMIZE) {
 #else
         if (HIWORD(SendMessage (hMDIClientWnd, WM_MDIGETACTIVE, 0, 0L))) {
 #endif

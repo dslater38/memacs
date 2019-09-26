@@ -262,7 +262,7 @@
 
 /* MS-Windows */
 
-#if     WINNT || WINDOW_MSWIN
+#if WINNT || WINDOW_MSWIN
 #if 1
 #undef  MAC     /* Mac conflicts with a definition used by rpc.h */
 #undef  VOID    /* windows.h will wind up defining this when compiled as a console app */
@@ -270,7 +270,7 @@
 
 /* if SetWindowLongPtr isn't defined, then assume we're using an old compiler */
 /* That is either 32-bit or 16-bit. In either case, just define the new API names */
-/* to be the old API names instead of littering the code with a bunch of ifdefs */
+/* to be the old API names instead of lettering the code with a bunch of ifdefs */
 #ifndef SetWindowLongPtr
 
 #define SetWindowLongPtr SetWindowLong

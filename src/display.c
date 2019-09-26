@@ -1766,7 +1766,7 @@ int c;	/* character to write */
 #else
 	if (ttcol + 1 < term.t_ncol) {
 #endif
-#if	WINNT || WINXP
+#if	WINNT
 		putchar(c);
 		fflush(stdout);		
 #endif
