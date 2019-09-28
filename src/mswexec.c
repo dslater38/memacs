@@ -17,7 +17,7 @@
 #define CMDLENGTH   256+NFILEN
 
 /* local data */
-#if WINDOW_MSWIN32
+#ifdef WIN32
 static STARTUPINFO suInfo = { 0 };
 static char suTitle [] = PROGNAME "'s subshell";
 static PROCESS_INFORMATION pInfo = { 0 };
@@ -38,7 +38,7 @@ static void PASCAL  HandleTimer (HWND hDlg)
    setting the timer, the dialog box is terminated with a FALSE result
    after a message box announcing the problem has been displayed. */
 {
-#if WINDOW_MSWIN32
+#ifdef WIN32
     /* check for process completion */
     if (WaitForSingleObject(pInfo.hProcess, 0) == WAIT_TIMEOUT) {
 #else
@@ -92,7 +92,7 @@ BOOL EXPORT FAR PASCAL LaunchPrgEnumProc (HWND hWnd, LPARAM lParam)
 /* this function sets hPrgWnd when it finds a window that matches the
    module instance handle passed in lParam */
 {
-#if !WINDOW_MSWIN32
+#ifndef WIN32
     if (GetWindowWord (hWnd, GWW_HINSTANCE) == LOWORD(lParam)) {
 	hPrgWnd = hWnd;
 	return FALSE;   /* found it, stop enumerating */
@@ -134,7 +134,7 @@ static BOOL PASCAL  LaunchPrg (char *Cmd, BOOL DOSApp,
    FALSE). */
 {
     char    FullCmd [CMDLENGTH];
-#if !WINDOW_MSWIN32
+#ifndef WIN32
     HANDLE  hModule;
     int     nCmdShow;
 
@@ -154,7 +154,7 @@ static BOOL PASCAL  LaunchPrg (char *Cmd, BOOL DOSApp,
         return FALSE;
     }
     if (DOSApp) {
-#if WINDOW_MSWIN32
+#ifdef WIN32
         GetPrivateProfileString (ProgName, "Shell", "cmd.exe", FullCmd,
 			CMDLENGTH, IniFile);
 
@@ -226,7 +226,7 @@ static BOOL PASCAL  LaunchPrg (char *Cmd, BOOL DOSApp,
 	    strcat (FullCmd, OutFile);
 	}
     }
-#if WINDOW_MSWIN32
+#ifdef WIN32
     /* set the startup window size */
     suInfo.cb = sizeof(STARTUPINFO);
     if (DOSApp && Cmd) suInfo.lpTitle = suTitle;
@@ -359,7 +359,7 @@ int PASCAL pipecmd (int f, int n)
     int     Result;
     int     bmode;
     char    bflag;
-#if WINDOW_MSWIN32
+#ifdef WIN32
 /*	EWINDOW  *wp; */
     char    TempDir[NFILEN] = "\\";
 #endif
@@ -383,7 +383,7 @@ int PASCAL pipecmd (int f, int n)
         /* cannot create buffer */
         return FALSE;
     }
-#if WINDOW_MSWIN32
+#ifdef WIN32
     GetTempPath (NFILEN, TempDir);
     GetTempFileName (TempDir, "UE", 0, OutFile);
 #else
@@ -435,7 +435,7 @@ int PASCAL filter (int f, int n)
     char    fname[NFILEN];
     BUFFER  *bp;
     int     Result;
-#if WINDOW_MSWIN32
+#ifdef WIN32
 /*	EWINDOW  *wp; */
     char    TempDir[NFILEN] = "\\";
 #endif
@@ -448,7 +448,7 @@ int PASCAL filter (int f, int n)
 
     bp = curbp;
     strcpy (fname, bp->b_fname);
-#if WINDOW_MSWIN32
+#ifdef WIN32
     GetTempPath (NFILEN, TempDir);
     GetTempFileName (TempDir, "UE", 0, InFile);
 #else
@@ -460,7 +460,7 @@ int PASCAL filter (int f, int n)
         /* cannot write filter file */
     }
     else {
-#if WINDOW_MSWIN32
+#ifdef WIN32
         GetTempFileName (TempDir, "UE", 0, OutFile);
 #else
         GetTempFileName (0, "UE", 0, OutFile);

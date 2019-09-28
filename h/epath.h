@@ -39,7 +39,7 @@ NOSHARE CONST char *pathname[] =
 };
 #endif
 
-#if	MSDOS || WINNT || WINXP
+#if	MSDOS || WINNT
 {
 	"emacs.rc",
 	"emacs.hlp",

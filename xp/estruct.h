@@ -127,8 +127,8 @@
 
 /*	Windowing system style (pick one)				*/
 
-#define WINDOW_TEXT	0		/* [default] Text mode		*/
-#define WINDOW_MSWIN	1		/* MicroSoft Windows		*/
+#define WINDOW_TEXT	1		/* [default] Text mode		*/
+#define WINDOW_MSWIN	0		/* MicroSoft Windows		*/
 #define WINDOW_X	0		/* X/Unix			*/
 
 /*	Language text options	(pick one)				*/
@@ -144,7 +144,7 @@
 
 /*	Configuration options	*/
 
-#define TYPEAH	1	/* type ahead causes update to be skipped	*/
+#define TYPEAH	0	/* type ahead causes update to be skipped	*/
 #define LOGFLG	0	/* send all executed commands to EMACS.LOG	*/
 #define VISMAC	0	/* update display during keyboard macros	*/
 #define CTRLZ	0	/* add a ^Z at end of files under MSDOS only	*/

@@ -591,7 +591,7 @@ void FAR PASCAL MLPaint (void)
     hPrev = SelectObject (ps.hdc, hPen);
     GetClientRect (hFrameWnd, &Rect);
     Rect.top = Rect.bottom - EmacsCM.MLHeight;
-#if WINDOW_MSWIN32
+#ifdef WIN32
     MoveToEx (ps.hdc, 0, Rect.top, NULL);
 #else
     MoveTo (ps.hdc, 0, Rect.top);

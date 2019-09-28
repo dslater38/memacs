@@ -188,7 +188,7 @@ char *fname;		/* name of function to evaluate */
 		case UFLOWER:	strncpy(result, arg1, 2 * NSTRING);
 						return(mklower(result));
 		case UFMID:	arg = asc_int(arg2);
-				if (arg > strlen(arg1))
+				if (arg > (int)strlen(arg1))
 					return(strcpy(result, ""));
 				return(bytecopy(result, &arg1[arg-1],
 					asc_int(arg3)));
@@ -218,7 +218,7 @@ char *fname;		/* name of function to evaluate */
 		case UFOR:	return(ltos(stol(arg1) || stol(arg2)));
 		case UFREVERSE: return(strrev(bytecopy(result, arg1, NSTRING * 2)));
 		case UFRIGHT:	arg = asc_int(arg2);
-				if (arg > strlen(arg1))
+				if (arg > (int)strlen(arg1))
 					arg = (int)strlen(arg1);
 				return(strcpy(result,
 					&arg1[strlen(arg1) - arg]));
@@ -1774,7 +1774,7 @@ char *s;	/* string to add spaces to */
 int len;	/* wanted length of string */
 
 {
-	while (strlen(s) < len) {
+	while ((int)strlen(s) < len) {
                 strcat(s, "          ");
 		s[len] = 0;
 	}

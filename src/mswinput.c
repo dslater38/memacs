@@ -197,7 +197,7 @@ KeyDown:
 	break;
 
     case WM_MENUCHAR:
-#if WINDOW_MSWIN32
+#ifdef WIN32
 	if (!(HIWORD(wParam) & MF_POPUP) && (GetKeyState (VK_MENU) < 0)) {
 #else
 	if (!(LOWORD(lParam) & MF_POPUP) && (GetKeyState (VK_MENU) < 0)) {
@@ -355,11 +355,7 @@ void FAR PASCAL DropMessage (HWND hWnd, HDROP hDrop)
         }
         else {
             /* the drop occured on a screen */
-#if WINXP
 			addline(DropBuf, ((SCREEN*)GetWindowLongPtr(hWnd, GWL_SCRPTR))->s_screen_name);
-#else
-			addline(DropBuf, ((SCREEN*)GetWindowLong (hWnd, GWL_SCRPTR))->s_screen_name);
-#endif
             if (DragQueryPoint (hDrop, &Point)) {
                 ClientToCell (hWnd, Point, &Point);
             }

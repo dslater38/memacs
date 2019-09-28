@@ -32,7 +32,7 @@ static BOOL PASCAL CopyToClipboard (REGION *Region)
 {
     long    Size = 0L;
     HANDLE  hData;
-#if WINDOW_MSWIN32
+#ifdef WIN32
     char    *Data;
 #else
     char huge *Data;
@@ -222,7 +222,7 @@ int PASCAL helpengine (int f, int n)
         Result = mlreply (TEXT308, HelpKey, NLINE);
 	if ((Result != TRUE) && (Result != FALSE)) return Result;
 	    /* "Help key: " */
-#if WINXP
+#ifdef WIN32
 	if (HelpKey[0] == '\0') {
 	    HtmlHelp (hFrameWnd, HelpEngineFile, HH_HELP_FINDER, 0);
 	}
@@ -241,11 +241,11 @@ int PASCAL helpengine (int f, int n)
 	}
 #else
 	if (HelpKey[0] == '\0') {
-	    WinHelp (hFrameWnd, HelpEngineFile, HELP_INDEX, NULL);
+	    WinHelp (hFrameWnd, HelpEngineFile, HELP_INDEX, 0);
 	}
 	else {
 	    WinHelp (hFrameWnd, HelpEngineFile, HELP_KEY,
-                     (DWORD)(LPSTR)&HelpKey[0]);
+                     (DWORD_PTR)(LPSTR)&HelpKey[0]);
 	}
 #endif
     }

@@ -14,43 +14,77 @@
 #undef  NEAR
 #undef  HIBYTE
 
-#include <windows.h>
-#include <stdio.h>
-
 #include        "estruct.h"
 #include        "eproto.h"
 #include        "edef.h"
 #include        "elang.h"
 
-#if     XPCON
+#if     NTCON
 #define NROW    256              /* Max Screen size.         */
 #define NCOL    256             /* Edit if you want to.         */
 #define MARGIN  8               /* size of minimim margin and   */
 #define SCRSIZ  64              /* scroll size for extended lines */
 #define NPAUSE  5               /* # times thru update to pause */
 
+ /* CONSOLE_SCREEN_BUFFER_INFOEX is defined in consoleapi2.h, which is part of newer VS versions*/
+/* Use FORCE_DEFINE_CONSOLE_SCREEN_BUFFER_INFOEX to force the inclusion of this definition */
+/* Use NO_DEFINE_CONSOLE_SCREEN_BUFFER_INFOEX to force the exclusion of this definition */
+
+#if (!defined(_APISETCONSOLEL2_) || defined(FORCE_DEFINE_CONSOLE_SCREEN_BUFFER_INFOEX)) && !defined(NO_DEFINE_CONSOLE_SCREEN_BUFFER_INFOEX)
+
+typedef struct _CONSOLE_SCREEN_BUFFER_INFOEX {
+	ULONG cbSize;
+	COORD dwSize;
+	COORD dwCursorPosition;
+	WORD wAttributes;
+	SMALL_RECT srWindow;
+	COORD dwMaximumWindowSize;
+	WORD wPopupAttributes;
+	BOOL bFullscreenSupported;
+	COLORREF ColorTable[16];
+} CONSOLE_SCREEN_BUFFER_INFOEX, *PCONSOLE_SCREEN_BUFFER_INFOEX;
+
+#endif
+
+/* Poly fills when running on an older OS*/
+static BOOL WINAPI GetConsoleScreenBufferInfoExPtr_pFill(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInfo);
+static BOOL WINAPI SetConsoleScreenBufferInfoExPtr_pFill(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInfo);
+
+typedef BOOL(WINAPI *GetConsoleScreenBufferInfoExPtr)(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInfo);
+typedef BOOL(WINAPI *SetConsoleScreenBufferInfoExPtr)(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInof);
+
+/* These are the function pointers used in this file. Initialized to the polyfils to ensure they're always valid.  */
+static GetConsoleScreenBufferInfoExPtr getConsoleScreenBufferInfoEx = GetConsoleScreenBufferInfoExPtr_pFill;
+static SetConsoleScreenBufferInfoExPtr setConsoleScreenBufferInfoEx = SetConsoleScreenBufferInfoExPtr_pFill;
+
+/* Dynamically load GetConsoleScreenBufferInfoExPtr/SetConsoleScreenBufferInfoExPtr from kernel32.dll if available*/
+static void initAPI();
+
+int win_version = WINVER;
+int win32_winnt = _WIN32_WINNT;
+
 /* Forward references.          */
 
-PASCAL NEAR ntmove();
-PASCAL NEAR nteeol();
-PASCAL NEAR nteeop();
-PASCAL NEAR ntbeep();
-PASCAL NEAR ntopen();
-PASCAL NEAR ntclose();
-PASCAL NEAR ntgetc();
-PASCAL NEAR ntputc();
-PASCAL NEAR ntflush();
-PASCAL NEAR ntrev();
-PASCAL NEAR ntkclose();
-PASCAL NEAR ntkopen();
-PASCAL NEAR ntcres();
-PASCAL NEAR ntparm();
+int PASCAL NEAR ntmove(int row, int col);
+int PASCAL NEAR nteeol(void);
+int PASCAL NEAR nteeop(void);
+int PASCAL NEAR ntbeep(void);
+int PASCAL NEAR ntopen(void);
+int PASCAL NEAR ntclose(void);
+int PASCAL NEAR ntgetc(void);
+int PASCAL NEAR ntputc(int c);
+int PASCAL NEAR ntflush(void);
+int PASCAL NEAR ntrev(int state);
+int PASCAL NEAR ntkclose(void);
+int PASCAL NEAR ntkopen(void);
+int PASCAL NEAR ntcres(char *res);
+int PASCAL NEAR ntparm();
 #if     COLOR
-PASCAL NEAR ntfcol();
-PASCAL NEAR ntbcol();
+int PASCAL NEAR ntfcol(int color);
+int PASCAL NEAR ntbcol(int color);
 #endif
-PASCAL NEAR fnclabel();
-static WORD NEAR ntAttribute(void);
+int PASCAL NEAR fnclabel();
+static WORD near ntAttribute(void);
 
 /* Screen buffer to write to. */
 static CHAR_INFO ciScreenBuffer[NROW * NCOL];
@@ -76,9 +110,9 @@ int revflag = FALSE;                    /* are we currently in rev video? */
  */
 static HANDLE hInput, hOutput;
 static char chConsoleTitle[256];    // Preserve the title of the console.
-static long ConsoleMode, OldConsoleMode;
+static DWORD ConsoleMode, OldConsoleMode;
+CONSOLE_SCREEN_BUFFER_INFOEX OldConsoleInfo = { 0 };
 
-static INPUT_RECORD ir;
 static WORD wKeyEvent;
 
 /*
@@ -115,7 +149,7 @@ TERM    term    = {
 
 /*	Mousing global variable	*/
 static int mexist;	/* is the mouse driver installed? */
-static int nbuttons;	/* number of buttons on the mouse */
+static DWORD nbuttons;	/* number of buttons on the mouse */
 static int oldbut;	/* Previous state of mouse buttons */
 static int oldcol;	/* previous x position of mouse */
 static int oldrow;	/* previous y position of mouse */
@@ -125,8 +159,8 @@ static int oldrow;	/* previous y position of mouse */
 #define	IBUFSIZE	64	/* this must be a power of 2 */
 
 unsigned char in_buf[IBUFSIZE];	/* input character buffer */
-int in_next = 0;		/* pos to retrieve next input character */
-int in_last = 0;		/* pos to place most recent input character */
+static int in_next = 0;		/* pos to retrieve next input character */
+static int in_last = 0;		/* pos to place most recent input character */
 
 void in_init()	/* initialize the input buffer */
 
@@ -143,12 +177,9 @@ int in_check()	/* is the input buffer non-empty? */
 		return(TRUE);
 }
 
-void in_put(event)
-
-int event;	/* event to enter into the input buffer */
-
+void in_put(int event)
 {
-	in_buf[in_last++] = event;
+	in_buf[in_last++] = (unsigned char)event;
 	in_last &= (IBUFSIZE - 1);
 }
 
@@ -168,10 +199,11 @@ int in_get()	/* get an event from the input buffer */
 /* Set the current foreground color.					*/
 /*----------------------------------------------------------------------*/
 
-PASCAL NEAR ntfcol(
+int PASCAL NEAR ntfcol(
 	int color)			/* color to set */
 {
 	cfcolor = ctrans[color];
+	return 0;
 }
 
 /*----------------------------------------------------------------------*/
@@ -179,10 +211,11 @@ PASCAL NEAR ntfcol(
 /* Set the current background color.					*/
 /*----------------------------------------------------------------------*/
 
-PASCAL NEAR ntbcol(
+int PASCAL NEAR ntbcol(
 	int color)		/* color to set */
 {
 	cbcolor = ctrans[color];
+	return 0;
 }
 #endif
 
@@ -205,15 +238,16 @@ static void near ntSetUpdateValues(void)
 /* Move the cursor. 						*/
 /*----------------------------------------------------------------------*/
 
-PASCAL NEAR ntmove(
+int PASCAL NEAR ntmove(
 	int row,
 	int col)
 {
 	COORD dwCursorPosition;
 
-	ntcol = dwCursorPosition.X = col;
-	ntrow = dwCursorPosition.Y = row;
+	ntcol = dwCursorPosition.X = (SHORT)col;
+	ntrow = dwCursorPosition.Y = (SHORT)row;
 	SetConsoleCursorPosition(hOutput, dwCursorPosition);
+	return 0;
 }
 
 
@@ -222,16 +256,24 @@ PASCAL NEAR ntmove(
 /* Update the physical video buffer from the logical video buffer.	*/
 /*----------------------------------------------------------------------*/
 
-PASCAL NEAR ntflush(void)
+int PASCAL NEAR ntflush(void)
 {
 	SMALL_RECT srWriteRegion;
 	COORD coordUpdateBegin, coordBufferSize;
 
 	if (ntMin <= ntMax) {
 
+
+		srWriteRegion.Right = term.t_ncol - 1;
+		srWriteRegion.Left = 0;
+
+		coordUpdateBegin.X = 0;
+		coordUpdateBegin.Y = ntMin;
+
+#if 0
 		if (ntMin == ntMax) {
 
-			/* Fri Feb 14 1992 WaltW - Same line bud. */
+			/* Fri Feb 14 1992 WaltW - Same fuckin' line bud. */
 			srWriteRegion.Right = term.t_ncol - 1 /*ntColMax*/;
 			srWriteRegion.Left = 0; //ntColMin;
 
@@ -244,6 +286,7 @@ PASCAL NEAR ntflush(void)
 			coordUpdateBegin.X = 0;
 			coordUpdateBegin.Y = ntMin;
 		}
+#endif // 0
 
 		srWriteRegion.Bottom = ntMax;
 		srWriteRegion.Top = ntMin;
@@ -260,19 +303,19 @@ PASCAL NEAR ntflush(void)
 	return(TRUE);
 }
 
-static void near MouseEvent(void)
+static int near MouseEvent(INPUT_RECORD *pIr)
 
 {
+	MOUSE_EVENT_RECORD *m_event;	/* mouse event to decode */
 	register int k;		/* current bit/button of mouse */
 	register int event;	/* encoded mouse event */
 	register int etype;	/* event type byte */
-	MOUSE_EVENT_RECORD *m_event;	/* mouse event to decode */
 	int mousecol;		/* current mouse column */
 	int mouserow;		/* current mouse row */
 	int sstate;		/* current shift key status */
 	int newbut;		/* new state of the mouse buttons */
 
-	m_event = &(ir.Event.MouseEvent);
+	m_event = &(pIr->Event.MouseEvent);
 
 	/* check to see if any mouse buttons are different */
 	newbut = m_event->dwButtonState;
@@ -343,7 +386,7 @@ static void near MouseEvent(void)
 	return(FALSE);
 }
 
-static void near WindowSizeEvent(void)
+static void near WindowSizeEvent()
 {
 	CONSOLE_SCREEN_BUFFER_INFO Console;
 
@@ -362,32 +405,32 @@ static void near WindowSizeEvent(void)
 
 /* handle the current keyboard event */
 
-static void near KeyboardEvent()
+static void near KeyboardEvent(INPUT_RECORD *pIr)
 
 {
 	int c;		/* ascii character to examine */
 	int vscan;	/* virtual scan code */
-	int prefix;	/* character prefix */
+	int lprefix;	/* character lprefix */
 	int state;	/* control key state from console device */
 
 	/* ignore key up events */
-	if (ir.Event.KeyEvent.bKeyDown == FALSE)
-		return(FALSE);
+	if (pIr->Event.KeyEvent.bKeyDown == FALSE)
+		return;
 
 	/* If this is an extended character, process it */
-	c = ir.Event.KeyEvent.uChar.AsciiChar;
-	state = ir.Event.KeyEvent.dwControlKeyState;
-	prefix = 0;
+	c = pIr->Event.KeyEvent.uChar.AsciiChar;
+	state = pIr->Event.KeyEvent.dwControlKeyState;
+	lprefix = 0;
 
 	if (c == 0) {
 
 		/* grab the virtual scan code */
-		vscan = ir.Event.KeyEvent.wVirtualScanCode;
+		vscan = pIr->Event.KeyEvent.wVirtualScanCode;
 
 		/* function keys are special! */
 		if (vscan > 58 && vscan < 68) {
 			c = '1' + vscan - 59;
-			prefix = SPEC;
+			lprefix = SPEC;
 			goto pastothers;
 		}
 
@@ -402,81 +445,81 @@ static void near KeyboardEvent()
 				return;
 
 			case 68:	/* F10 */
-				prefix = SPEC; c = '0'; break;
+				lprefix = SPEC; c = '0'; break;
 
 			case 69:	/* PAUSE */
-				prefix = SPEC; c = ':'; break;
+				lprefix = SPEC; c = ':'; break;
 
 			case 70:	/* SCROLL LOCK */
 				return;
 
 			case 71:	/* HOME */
-				prefix = SPEC; c = '<'; break;
+				lprefix = SPEC; c = '<'; break;
 
 			case 72:	/* Cursor Up */
-				prefix = SPEC; c = 'P'; break;
+				lprefix = SPEC; c = 'P'; break;
 
 			case 73:	/* Page Up */
-				prefix = SPEC; c = 'Z'; break;
+				lprefix = SPEC; c = 'Z'; break;
 
 			case 75:	/* Cursor left */
-				prefix = SPEC; c = 'B'; break;
+				lprefix = SPEC; c = 'B'; break;
 
 			case 76:	/* keypad 5 */
-				prefix = SPEC; c = 'L'; break;
+				lprefix = SPEC; c = 'L'; break;
 
 			case 77:	/* Cursor Right */
-				prefix = SPEC; c = 'F'; break;
+				lprefix = SPEC; c = 'F'; break;
 
 			case 79:	/* END */
-				prefix = SPEC; c = '>'; break;
+				lprefix = SPEC; c = '>'; break;
 
 			case 80:	/* Cursor Down */
-				prefix = SPEC; c = 'N'; break;
+				lprefix = SPEC; c = 'N'; break;
 
 			case 81:	/* Page Down */
-				prefix = SPEC; c = 'V'; break;
+				lprefix = SPEC; c = 'V'; break;
 
 			case 82:	/* insert key */
-				prefix = SPEC; c = 'C'; break;
+				lprefix = SPEC; c = 'C'; break;
 
 			case 83:	/* delete key */
-				prefix = SPEC; c = 'D'; break;
+				lprefix = SPEC; c = 'D'; break;
 
 			case 87:	/* F11 */
-				prefix = SPEC; c = '-'; break;
+				lprefix = SPEC; c = '-'; break;
 
 			case 88:	/* F12 */
-				prefix = SPEC; c = '='; break;
+				lprefix = SPEC; c = '='; break;
 
 			default:
-#if	1
+#if	0
 				/* tell us about a key we do net yet map! */
-				printf("<%d:%d/%d> ", ir.EventType,
-					ir.Event.KeyEvent.uChar.AsciiChar,
-					  ir.Event.KeyEvent.wVirtualScanCode);
+				printf("<%d:%d/%d> ", pIr->EventType,
+					pIr->Event.KeyEvent.uChar.AsciiChar,
+					   pIr->Event.KeyEvent.wVirtualScanCode);
 #endif
 				return;
 		}
 
 pastothers:	/* shifted special key? */
 		if (state & SHIFT_PRESSED)
-			prefix |= SHFT;
+			lprefix |= SHFT;
 	}
 
 	/* decode the various modifiers to the character */
 	if (state & (RIGHT_ALT_PRESSED | LEFT_ALT_PRESSED)) {
-		prefix |= ALTD;
+		lprefix |= ALTD;
 		if (islower(c))
 			c = c - 'a' + 'A';
 	}
 	if ((state & (RIGHT_CTRL_PRESSED | LEFT_CTRL_PRESSED)) && c > 31)
-		prefix |= CTRL;
+		lprefix |= CTRL;
 
-	/* if there is a prefix, insert it in the input stream */
-	if (prefix != 0) {
+	/* if there is a lprefix, insert it in the input stream */
+	if (lprefix != 0) {
 		in_put(0);
-		in_put(prefix >> 8);
+		in_put(lprefix >> 8);
 	}
 
 	/* place the ascii character in the input queue */
@@ -502,53 +545,85 @@ int PendingScreenResize()
 /*	ntgetc()							*/
 /* Get a character from the keyboard.					*/
 /*----------------------------------------------------------------------*/
+#define MAX_INPUT_EVENTS 128
+#define INPUT_WINDOW_SIZE 0
+#define INPUT_KEYBOARD_READY 1
 
-PASCAL NEAR ntgetc()
+static
+int WaitForInput()
 {
-
-	long dw;
-
-ttc:	ntflush();
-
-	/* return any keystrokes waiting in the
-	   type ahead buffer */
-	if (in_check())
-		return(in_get());
-
 	/* wait for input for a short time */
-	while (WaitForSingleObject(GetStdHandle(STD_INPUT_HANDLE), 10) == WAIT_TIMEOUT) {
-
+	while(WaitForSingleObject(hInput, 40) == WAIT_TIMEOUT)
+	{
 		/* check to see if the console window has been resized */
-		if (PendingScreenResize()) {
-			WindowSizeEvent();
-			goto ttc;
+		if(PendingScreenResize())
+		{
+			return INPUT_WINDOW_SIZE;
 		}
 	}
+	return INPUT_KEYBOARD_READY;
+}
 
-	/* get the next keyboard/mouse/resize event */
-	ReadConsoleInput(hInput, &ir, 1, &dw);
+int PASCAL NEAR ntgetc()
+{
+	DWORD dw = 0;
+	INPUT_RECORD ir[MAX_INPUT_EVENTS];
+	BOOL success = FALSE;
+	DWORD i;
 
-	/* let the proper event handler field this event */
-	switch (ir.EventType) {
 
-		case KEY_EVENT:
-			KeyboardEvent();
-			goto ttc;
+	for(;;)
+	{
 
-		case MOUSE_EVENT:
-			MouseEvent();
-			goto ttc;
+		ntflush();
 
-		case WINDOW_BUFFER_SIZE_EVENT:
-			/* resize max windows sizes here.... */
-			goto ttc;
+		/* return any keystrokes waiting in the
+		   type ahead buffer */
+		if(in_check())
+			return(in_get());
 
-		case FOCUS_EVENT:			/* ignore this one */
-			goto ttc;
+		if(INPUT_WINDOW_SIZE == WaitForInput())
+		{
+			WindowSizeEvent();
+			continue;
+		}
+
+		/* get the next keyboard/mouse/resize event */
+
+		if(FALSE == (success = ReadConsoleInput(hInput, ir, MAX_INPUT_EVENTS, &dw)))
+		{
+			meexit(127);
+		}
+
+		for(i = 0; i < dw; ++i)
+		{
+			INPUT_RECORD *pIr = (ir + i);
+			/* let the proper event handler field this event */
+			switch(pIr->EventType)
+			{
+
+			case KEY_EVENT:
+				KeyboardEvent(pIr);
+				break;
+
+			case MOUSE_EVENT:
+				MouseEvent(pIr);
+				break;
+
+			case WINDOW_BUFFER_SIZE_EVENT:
+				WindowSizeEvent();
+				break;
+
+			case MENU_EVENT:
+				break;
+			case FOCUS_EVENT:
+				break;
+			default:
+				/* We should never get here */
+				break;
+			}
+		}
 	}
-
-	/* we should never arrive here, ignore this event */
-	goto ttc;
 }
 
 #if TYPEAH
@@ -557,7 +632,7 @@ ttc:	ntflush();
 /* Returns true if a key has been pressed.				*/
 /*----------------------------------------------------------------------*/
 
-PASCAL NEAR typahead()
+int PASCAL NEAR typahead()
 
 {
 	/* anything waiting in the input queue? */
@@ -570,7 +645,7 @@ PASCAL NEAR typahead()
 
 static WORD near ntAttribute(void)
 {
-	return(revflag ? (cbcolor | (cfcolor << 4)) : ((cbcolor << 4) | cfcolor));
+	return(WORD) (revflag ? (cbcolor | (cfcolor << 4)) : ((cbcolor << 4) | cfcolor));
 }
 
 /*----------------------------------------------------------------------*/
@@ -585,31 +660,32 @@ static WORD near ntAttribute(void)
 /* a problem.								*/
 /*----------------------------------------------------------------------*/
 
-PASCAL NEAR ntputc(int c)
+int PASCAL NEAR ntputc(int c)
 {
 	WORD wScreenPos;
 
 	/* only characters on screen!!! */
 	if (ntcol < 0 || ntcol > 32000)
-			return;
+			return TRUE;
 
 	if (c == '\n' || c == '\r') { 		/* returns and linefeeds */
 		ntrow++;
 		ntcol = 0;
-		return;
+		return TRUE;
 	}
 
 	if (c == '\b') {			/* backspace */
 		--ntcol;
 		ntputc(' ');
 		--ntcol;
-		return;
+		return TRUE;
 	}
 
 	wScreenPos = (ntrow * term.t_ncol) + ntcol++;
-	ciScreenBuffer[wScreenPos].Char.AsciiChar = c;
+	ciScreenBuffer[wScreenPos].Char.AsciiChar = (char)c;
 	ciScreenBuffer[wScreenPos].Attributes = ntAttribute();
 	ntSetUpdateValues();
+	return TRUE;
 }
 
 
@@ -618,7 +694,7 @@ PASCAL NEAR ntputc(int c)
 /* Erase to end of line.						*/
 /*----------------------------------------------------------------------*/
 
-PASCAL NEAR nteeol()
+int PASCAL NEAR nteeol(void)
 {
 	WORD wNum;
 	WORD wScreenPos;
@@ -626,7 +702,7 @@ PASCAL NEAR nteeol()
 
 	/* only characters on screen!!! */
 	if (ntcol < 0 || ntcol > 32000)
-			return;
+			return TRUE;
 
 	wNum = term.t_ncol - ntcol;
 	wScreenPos = ntrow * term.t_ncol + ntcol;
@@ -637,6 +713,7 @@ PASCAL NEAR nteeol()
 		wScreenPos++, ntcol++;
 	}
 	ntSetUpdateValues();
+	return TRUE;
 }
 
 
@@ -645,7 +722,7 @@ PASCAL NEAR nteeol()
 /* Erase to end of page.						*/
 /*----------------------------------------------------------------------*/
 
-PASCAL NEAR nteeop()
+int PASCAL NEAR nteeop(void)
 {
 	WORD wNum;
 	WORD wScreenPos;
@@ -665,6 +742,7 @@ PASCAL NEAR nteeop()
 		wScreenPos++, ntcol++;
 	}
 	ntSetUpdateValues();
+	return 0;
 }
 
 /*----------------------------------------------------------------------*/
@@ -672,12 +750,10 @@ PASCAL NEAR nteeop()
 /* Change reverse video state.						*/
 /*----------------------------------------------------------------------*/
 
-PASCAL NEAR ntrev(state)
-
-int state;	/* TRUE = reverse, FALSE = normal */
-
+int PASCAL NEAR ntrev(int state)
 {
 	revflag = state;
+	return 0;
 }
 
 /*----------------------------------------------------------------------*/
@@ -685,7 +761,7 @@ int state;	/* TRUE = reverse, FALSE = normal */
 /* Change the screen resolution.					*/
 /*----------------------------------------------------------------------*/
 
-PASCAL NEAR ntcres(char *res)		/* name of desired video mode	*/
+int PASCAL NEAR ntcres(char *res)		/* name of desired video mode	*/
 {
 	return TRUE;
 }
@@ -696,7 +772,7 @@ PASCAL NEAR ntcres(char *res)		/* name of desired video mode	*/
 /* Change pallette settings.  (Does nothing.)				*/
 /*----------------------------------------------------------------------*/
 
-PASCAL NEAR spal(char *dummy)
+int PASCAL NEAR spal(char *dummy)
 {
 	return(TRUE);
 }
@@ -706,7 +782,7 @@ PASCAL NEAR spal(char *dummy)
 /*	ntbeep()							*/
 /*----------------------------------------------------------------------*/
 
-PASCAL NEAR ntbeep()
+int PASCAL NEAR ntbeep(void)
 {
 	Beep(750, 300);
 	return(TRUE);
@@ -716,34 +792,52 @@ PASCAL NEAR ntbeep()
 /*	ntopen()							*/
 /*----------------------------------------------------------------------*/
 
-PASCAL NEAR ntopen()
+int PASCAL NEAR ntopen()
 {
-	CONSOLE_SCREEN_BUFFER_INFO Console;
+	BOOL success = FALSE;
+	CONSOLE_SCREEN_BUFFER_INFOEX Console = { 0 };
+	Console.cbSize = sizeof(CONSOLE_SCREEN_BUFFER_INFOEX);
+
+	initAPI();
+
+	/* Get our standard handles */
+	hInput = GetStdHandle(STD_INPUT_HANDLE);
+	hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+	/* Store the original console info */
+	success = getConsoleScreenBufferInfoEx(hOutput, &Console);
+
+	OldConsoleInfo = Console;
+
+	/* Save the titlebar of the window so we can
+		* restore it when we leave. */
+	success = GetConsoleTitle(chConsoleTitle, sizeof(chConsoleTitle)/sizeof(chConsoleTitle[0]));
+
 
 	/* initialize the input queue */
 	in_init();
 	strcpy(os, "WINXP");
 
 	/* This will allocate a console if started from
-	 * the windows NT program manager. */
-	AllocConsole();
+	/* the windows NT program manager. */
+	/* AllocConsole(); */
 
-	/* Save the titlebar of the window so we can
-	 * restore it when we leave. */
-	GetConsoleTitleA(&chConsoleTitle, sizeof(chConsoleTitle));
+
 
 	/* Set Window Title to MicroEMACS */
-	SetConsoleTitleA(PROGNAME);
-
-	/* Get our standard handles */
-	hInput = GetStdHandle(STD_INPUT_HANDLE);
-	hOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+	success = SetConsoleTitle(PROGNAME);
 
 	/* get a ptr to the output screen buffer */
-	GetConsoleScreenBufferInfo(hOutput, &Console);
-	SetConsoleMode(hInput, ENABLE_WINDOW_INPUT);
+
+	/* success = SetConsoleMode(hInput, ENABLE_WINDOW_INPUT); */
 
 	/* let MicroEMACS know our starting screen size */
+#if	RESIZABLE_BUFFER
+	term.t_nrow = (Console.srWindow.Bottom - Console.srWindow.Top) + 1; /* Console.dwSize.Y - 1; */
+	term.t_ncol = (Console.srWindow.Right - Console.srWindow.Left) + 1;
+
+	ciScreenBuffer = malloc((term.t_nrow*term.t_ncol) * sizeof(CHAR_INFO));
+
+#else
 	term.t_nrow = Console.srWindow.Bottom;
 	term.t_ncol = Console.srWindow.Right + 1;
 	term.t_mrow = NROW - 1;
@@ -752,6 +846,23 @@ PASCAL NEAR ntopen()
 		term.t_nrow = term.t_mrow;
 	if (term.t_ncol > term.t_mcol)
 		term.t_ncol = term.t_mcol;
+#endif
+#if 0
+  
+	term.t_mrow = term.t_nrow;
+	term.t_mcol = term.t_ncol;
+#endif  
+  
+	Console.dwSize.Y = term.t_nrow+1;
+	Console.dwSize.X = term.t_ncol;
+	Console.srWindow.Bottom = Console.srWindow.Top + term.t_nrow+1;
+	Console.srWindow.Right = Console.srWindow.Left + term.t_ncol;
+	Console.dwMaximumWindowSize.X = Console.dwSize.X;
+	Console.dwMaximumWindowSize.Y = Console.dwSize.Y;
+	Console.wAttributes = (FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+	Console.bFullscreenSupported = TRUE;
+	success = setConsoleScreenBufferInfoEx(hOutput, &Console);
+
 
 	/* remeber this size */
 	lastwrow = term.t_nrow;
@@ -785,12 +896,19 @@ PASCAL NEAR ntopen()
 /* Restore the original video settings. 				*/
 /*----------------------------------------------------------------------*/
 
-PASCAL NEAR ntclose()
+int PASCAL NEAR ntclose(void)
 {
 	/* reset the title on the window */
-	SetConsoleTitleA(chConsoleTitle);
 
-	FreeConsole();
+	SetConsoleTitle(chConsoleTitle);
+
+	if(OldConsoleInfo.dwSize.X > 0 )
+	{
+		setConsoleScreenBufferInfoEx(hOutput, &OldConsoleInfo);
+
+	}
+
+	/* FreeConsole(); */
 	return(TRUE);
 }
 
@@ -799,7 +917,7 @@ PASCAL NEAR ntclose()
 /* Open the keyboard.							*/
 /*----------------------------------------------------------------------*/
 
-PASCAL NEAR ntkopen()
+int PASCAL NEAR ntkopen(void)
 {
 	/* save the original console mode to restore on exit */
 	GetConsoleMode(hInput, &OldConsoleMode);
@@ -807,8 +925,9 @@ PASCAL NEAR ntkopen()
 	/* and reset this to what MicroEMACS needs */
 	ConsoleMode = OldConsoleMode;
 	ConsoleMode &= ~(ENABLE_PROCESSED_INPUT | ENABLE_LINE_INPUT |
-		ENABLE_ECHO_INPUT | ENABLE_WINDOW_INPUT);
-	ConsoleMode |= ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT;
+		ENABLE_ECHO_INPUT | ENABLE_WINDOW_INPUT /* | ENABLE_QUICK_EDIT_MODE*/ );
+	ConsoleMode |= (ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT);
+  
 	SetConsoleMode(hInput, ConsoleMode);
 
 	return(TRUE);
@@ -820,7 +939,7 @@ PASCAL NEAR ntkopen()
 /* Close the keyboard.							*/
 /*----------------------------------------------------------------------*/
 
-PASCAL NEAR ntkclose()
+int PASCAL NEAR ntkclose(void)
 {
 	/* restore the console mode from entry */
 	SetConsoleMode(hInput, OldConsoleMode);
@@ -828,7 +947,7 @@ PASCAL NEAR ntkclose()
 }
 
 #if FLABEL
-PASCAL NEAR fnclabel(f, n)	/* label a function key */
+int PASCAL NEAR fnclabel(f, n)	/* label a function key */
 
 int f,n;	/* default flag, numeric argument [unused] */
 
@@ -837,4 +956,50 @@ int f,n;	/* default flag, numeric argument [unused] */
 	return(TRUE);
 }
 #endif
+
+static BOOL WINAPI GetConsoleScreenBufferInfoExPtr_pFill(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInfo)
+{
+	BOOL success = FALSE;
+	if (pInfo && pInfo->cbSize == sizeof(CONSOLE_SCREEN_BUFFER_INFOEX))
+	{
+		CONSOLE_SCREEN_BUFFER_INFO *ptr = (CONSOLE_SCREEN_BUFFER_INFO *)(((char *)pInfo) + sizeof(ULONG));
+		success = GetConsoleScreenBufferInfo(h, ptr);
+		if (success)
+		{
+			pInfo->bFullscreenSupported = FALSE;
+			pInfo->wPopupAttributes = 0;
+			memset(pInfo->ColorTable, '\0', sizeof(pInfo->ColorTable));
+		}
+	}
+	return success;
+}
+
+static BOOL WINAPI SetConsoleScreenBufferInfoExPtr_pFill(HANDLE h, PCONSOLE_SCREEN_BUFFER_INFOEX pInfo)
+{
+
+	BOOL success = FALSE;
+	if (pInfo && pInfo->cbSize == sizeof(CONSOLE_SCREEN_BUFFER_INFOEX))
+	{
+		success = success && SetConsoleScreenBufferSize(h, pInfo->dwSize);
+		success = success && SetConsoleWindowInfo(h, FALSE, &(pInfo->srWindow));
+		success = success && SetConsoleTextAttribute(h, pInfo->wAttributes);
+	}
+	return success;
+}
+
+static void initAPI()
+{
+	HMODULE hLibKernel = GetModuleHandle("kernel32.dll");
+	if (hLibKernel)
+	{
+		FARPROC p1 = GetProcAddress(hLibKernel, "GetConsoleScreenBufferInfoEx");
+		FARPROC p2 = GetProcAddress(hLibKernel, "SetConsoleScreenBufferInfoEx");
+		if (p1 && p2)
+		{
+			getConsoleScreenBufferInfoEx = (GetConsoleScreenBufferInfoExPtr)p1;
+			setConsoleScreenBufferInfoEx = (SetConsoleScreenBufferInfoExPtr)p2;
+		}
+	}
+}
+
 #endif
