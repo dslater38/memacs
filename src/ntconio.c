@@ -304,6 +304,32 @@ int PASCAL NEAR ntflush(void)
 	return(TRUE);
 }
 
+static void near KeyboardEvent(INPUT_RECORD *pIr);
+
+static int MouseWheelEvent(MOUSE_EVENT_RECORD *m_event)
+{
+	int success = FALSE;
+	if (m_event && m_event->dwEventFlags == MOUSE_WHEELED)
+	{
+		INPUT_RECORD rec = { 0 };
+		rec.EventType = KEY_EVENT;
+		rec.Event.KeyEvent.bKeyDown = TRUE;
+		if ((short)HIWORD(m_event->dwButtonState) > 0)
+		{
+			// wheel rolled forward (away from the user) - generate an up arrow event
+			rec.Event.KeyEvent.wVirtualScanCode = 72;
+		}
+		else
+		{
+			// wheel rolled backward (toward the user) - generate a down arrow event
+			rec.Event.KeyEvent.wVirtualScanCode = 80;
+		}
+		KeyboardEvent(&rec);
+		success = TRUE;
+	}
+	return success;
+}
+
 static int near MouseEvent(INPUT_RECORD *pIr)
 
 {
@@ -322,6 +348,11 @@ static int near MouseEvent(INPUT_RECORD *pIr)
 	newbut = m_event->dwButtonState;
 	mousecol = m_event->dwMousePosition.X;
 	mouserow = m_event->dwMousePosition.Y;
+
+	if (m_event->dwEventFlags == MOUSE_WHEELED || m_event->dwEventFlags == MOUSE_HWHEELED)
+	{
+		return MouseWheelEvent(m_event);
+	}
 
 	/* only notice changes */
 	if ((oldbut == newbut) && (mousecol == oldcol)
