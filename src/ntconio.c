@@ -20,6 +20,11 @@
 #include        "edef.h"
 #include        "elang.h"
 
+/* MOUSE_HWHEELED is only defined iff _WIN32_WINNT >_ 0x0600 */
+#ifndef MOUSE_HWHEELED
+#define MOUSE_HWHEELED 0x0008
+#endif
+
 #if     NTCON
 #define NROW    256              /* Max Screen size.         */
 #define NCOL    256             /* Edit if you want to.         */
