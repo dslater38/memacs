@@ -47,7 +47,7 @@
 #define AVIION	0			/* Data General AViiON		*/
 #define BSD	0			/* UNIX BSD 4.2 and ULTRIX	*/
 #define FINDER	0			/* Macintosh OS 		*/
-#define	FREEBSD	0			/* FREEBSD 386 version 2 or +	*/
+#define	FREEBSD	1			/* FREEBSD 386 version 2 or +	*/
 #define HPUX8	0			/* HPUX HP 9000 ver 8 or less	*/
 #define HPUX9	0			/* HPUX HP 9000 ver 9           */
 #define MPE	0			/* HP MPE/XL			*/
@@ -67,10 +67,10 @@
 #define ALCYON	0	/* ALCYON Atari ST compiler */
 #define AZTEC	0	/* Aztec C 4.00e ONLY for the amiga now... */
 #define DGC	0	/* Data General AOS/VS C... */
-#define GCC	0	/* the GNU C compiler */
+#define GCC	1	/* the GNU C compiler */
 #define IC	0	/* Rational Systems Instant C */
 #define LATTICE 0	/* Lattice 2.14 through 3.0 compilers */
-#define MSC	1	/* MicroSoft C compile version 3 and up */
+#define MSC	0	/* MicroSoft C compile version 3 and up */
 #define MWC	0	/* Mark Williams C */
 #define TURBO	0	/* Turbo C and Borland C++ under MSDOS */
 #define UNIX	0	/* a standard UNIX compiler (cc) */
@@ -105,7 +105,7 @@
 /*	Terminal Output definitions		*/
 /*	[Set one of these!!]			*/
 
-#define ANSI	0			/* ANSI escape sequences	*/
+#define ANSI	1			/* ANSI escape sequences	*/
 #define DASHER	0			/* DG Dasher 2xx/4xx crts	*/
 #define DG10	0			/* Data General system/10	*/
 #define FMR	0			/* Fujitsu FMR series driver	*/
