@@ -569,8 +569,12 @@
 #define SUBLANG_SPANISH_EL_SALVADOR     0x11
 #define VK_MENU                         0x12
 #define WM_QUIT                         0x0012
-#define HTBORDER                        18
+#ifndef HTBORDER
+#define HTBORDER
+#endif
+#ifndef CF_MAX
 #define CF_MAX                          18
+#endif
 #define LANG_KOREAN                     0x12
 #define SUBLANG_ENGLISH_SINGAPORE       0x12
 #define SUBLANG_SPANISH_HONDURAS        0x12
@@ -1167,7 +1171,9 @@
 #define WM_SYSCHAR                      0x0106
 #define WM_SYSDEADCHAR                  0x0107
 #define WM_UNICHAR                      0x0109
+#ifndef WM_KEYLAST
 #define WM_KEYLAST                      0x0109
+#endif
 #define WM_IME_STARTCOMPOSITION         0x010D
 #define WM_IME_ENDCOMPOSITION           0x010E
 #define WM_IME_COMPOSITION              0x010F
@@ -1261,7 +1267,9 @@
 #define WM_XBUTTONUP                    0x020C
 #define WM_XBUTTONDBLCLK                0x020D
 #define WM_MOUSEHWHEEL                  0x020E
+#ifndef WM_MOUSELAST
 #define WM_MOUSELAST                    0x020E
+#endif
 #define WM_PARENTNOTIFY                 0x0210
 #define WM_ENTERMENULOOP                0x0211
 #define WM_EXITMENULOOP                 0x0212
