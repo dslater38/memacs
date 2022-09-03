@@ -15,7 +15,7 @@ HDIR = ../h
 # options and arguments to the C compiler
 
 #CFLAGS += -I. -I$(HDIR)
-CFLAGS = -O2 -I. -I$(HDIR)
+CFLAGS = -O2 -I. -I$(HDIR) -DBUILD_LINUX=1
 
 #list of object files
 
@@ -35,6 +35,9 @@ OFILES =	$(F1) $(F2) $(F3) $(F4) $(F5) $(F6) $(F7)
 
 emacs:	$(OFILES)
 		$(CC) $(CFLAGS) $(OFILES) -lncurses -lc -o emacs
+
+clean:
+	rm -f *.o emacs
 
 $(OBJD)/abbrev.o: $(SRCD)/abbrev.c
 	$(CC) $(CFLAGS) -c -o $(OBJD)/abbrev.o $(SRCD)/abbrev.c
