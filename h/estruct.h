@@ -9,7 +9,11 @@
 #elif defined(BUILD_XPCONSOLE)
 #include "xp/estruct.h"
 #else
+#ifdef BUILD_LINUX
+#include "linux/estruct.h"
+#else
 #include "estruct_orig.h"
+#endif
 #endif
 #endif
 
