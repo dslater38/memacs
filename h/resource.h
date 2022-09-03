@@ -1147,7 +1147,6 @@
 #define WVR_HREDRAW                     0x0100
 #define HDS_FILTERBAR                   0x0100
 #define TBSTYLE_TOOLTIPS                0x0100
-#define RBS_TOOLTIPS                    0x00000100
 #define TTS_USEVISUALSTYLE              0x100
 #define SBARS_SIZEGRIP                  0x0100
 #define TBS_TOOLTIPS                    0x0100
@@ -1247,7 +1246,6 @@
 #define CF_PRIVATEFIRST                 0x0200
 #define HDS_FLAT                        0x0200
 #define TBSTYLE_WRAPABLE                0x0200
-#define RBS_VARHEIGHT                   0x00000200
 #define TBS_REVERSED                    0x0200
 #define LVS_EDITLABELS                  0x0200
 #define TVS_TRACKSELECT                 0x0200
@@ -1384,7 +1382,6 @@
 #define WVR_VALIDRECTS                  0x0400
 #define HDS_CHECKBOXES                  0x0400
 #define TBSTYLE_ALTDRAG                 0x0400
-#define RBS_BANDBORDERS                 0x00000400
 #define TBS_DOWNISLEFT                  0x0400
 #define LVS_OWNERDRAWFIXED              0x0400
 #define TVS_SINGLEEXPAND                0x0400
@@ -1602,7 +1599,6 @@
 #define CS_SAVEBITS                     0x0800
 #define HDS_NOSIZING                    0x0800
 #define TBSTYLE_FLAT                    0x0800
-#define RBS_FIXEDORDER                  0x00000800
 #define SBARS_TOOLTIPS                  0x0800
 #define SBT_TOOLTIPS                    0x0800
 #define TBS_NOTIFYBEFOREMOVE            0x0800
@@ -1614,7 +1610,6 @@
 #define CS_BYTEALIGNCLIENT              0x1000
 #define HDS_OVERFLOW                    0x1000
 #define TBSTYLE_LIST                    0x1000
-#define RBS_REGISTERDROP                0x00001000
 #define TBS_TRANSPARENTBKGND            0x1000
 #define LVS_OWNERDATA                   0x1000
 #define TVS_FULLROWSELECT               0x1000
@@ -1623,13 +1618,11 @@
 #define IDM_POPUP                       0x1000
 #define CS_BYTEALIGNWINDOW              0x2000
 #define TBSTYLE_CUSTOMERASE             0x2000
-#define RBS_AUTOSIZE                    0x00002000
 #define LVS_NOSCROLL                    0x2000
 #define TVS_NOSCROLL                    0x2000
 #define TCS_OWNERDRAWFIXED              0x2000
 #define CS_GLOBALCLASS                  0x4000
 #define TBSTYLE_REGISTERDROP            0x4000
-#define RBS_VERTICALGRIPPER             0x00004000
 #define LVS_NOCOLUMNHEADER              0x4000
 #define TVS_NONEVENHEIGHT               0x4000
 #define TCS_TOOLTIPS                    0x4000
@@ -1703,7 +1696,6 @@
 #define WM_APP                          0x8000
 #define HELP_TCARD                      0x8000
 #define TBSTYLE_TRANSPARENT             0x8000
-#define RBS_DBLCLKTOGGLE                0x00008000
 #define LVS_NOSORTHEADER                0x8000
 #define TVS_NOHSCROLL                   0x8000
 #define TCS_FOCUSNEVER                  0x8000

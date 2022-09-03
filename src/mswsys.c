@@ -32,13 +32,18 @@ static int      argc;
 
 static char FrameClassName [] = PROGNAME ":frame";
 
-#if WINXP
+#ifdef WIN32
 #define MEWIN_HELP_FILE "mewin.chm"
 #else
 #define MEWIN_HELP_FILE "mewin.hlp"
 #endif
 
-#if WINDOW_MSWIN32
+#ifdef WIN32
+
+#ifndef WM_MOUSEWHEEL
+#define WM_MOUSEWHEEL 0x020A
+#endif
+
 #define USE_SEH 1
 #ifdef USE_SEH
 /* Raise an EXCEPTION_MLABORT instead of longjmp */
@@ -196,7 +201,7 @@ int parseCommandLine(LPSTR lpCmdLine)
 	}
 	while (*s != '\0') {
 		argv[argc] = s;
-		if (++argc >= nMaxArgs)
+		if (++argc >= (int)nMaxArgs)
 		{
 			char **tmp = NULL;
 			nMaxArgs += 10;
@@ -245,7 +250,7 @@ BOOL FAR PASCAL WinInit (LPSTR lpCmdLine, int nCmdShow)
     WORD        w;
 
     InitializeFarStorage ();
-#if WINDOW_MSWIN32
+#ifdef WIN32
     Win386Enhanced = FALSE;
     Win31API = TRUE;
 	((void)w);	/* unreferenced local variable warning */
@@ -673,7 +678,7 @@ LRESULT EXPORT FAR PASCAL ScrWndProc (HWND hWnd, UINT wMsg, WPARAM wParam,
 	goto DefaultProc;
 
     case WM_MDIACTIVATE:
-#if WINDOW_MSWIN32
+#ifdef WIN32
         if ((HWND)lParam == hWnd) {
 #else
 	if (wParam) {
@@ -736,7 +741,7 @@ LRESULT EXPORT FAR PASCAL ScrWndProc (HWND hWnd, UINT wMsg, WPARAM wParam,
     case WM_VSCROLL:
     case WM_HSCROLL:
         ScrollMessage (hWnd, wMsg, LOWORD(wParam),
-#if WINDOW_MSWIN32
+#ifdef WIN32
                        (int)HIWORD(wParam));
 #else
                        (int)LOWORD(lParam));
@@ -916,7 +921,7 @@ LRESULT EXPORT FAR PASCAL FrameWndProc (HWND hWnd, UINT wMsg, WPARAM wParam,
         InvalidateRect (hFrameWnd, NULL, FALSE);
         break;
 
-#if !WINDOW_MSWIN32
+#ifndef WIN32
     case WM_NCLBUTTONDBLCLK:
 	if (Win31API) goto DefaultProc;
 	else {
@@ -970,7 +975,7 @@ LRESULT EXPORT FAR PASCAL FrameWndProc (HWND hWnd, UINT wMsg, WPARAM wParam,
 	break;
 	
     case WM_DESTROY:
-#if WINXP
+#ifdef WIN32
 	if (MainHelpUsed) HtmlHelp (hFrameWnd, MainHelpFile, HH_CLOSE_ALL, 0);
 	if (HelpEngineFile[0] != '\0') HtmlHelp (hFrameWnd, HelpEngineFile,
                                                 HH_CLOSE_ALL, 0);
@@ -1024,8 +1029,9 @@ DefaultProc:
 int PASCAL  WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	LPSTR lpCmdLine, int nCmdShow)
 {
-	hEmacsInstance = hInstance;
 	int retCode = -1;
+	hEmacsInstance = hInstance;
+	
 	if (WinInit(lpCmdLine, nCmdShow))
 	{
 		__try {

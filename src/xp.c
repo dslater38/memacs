@@ -20,7 +20,7 @@
 #include        "eproto.h"
 #include <time.h>
 
-#if     WINNT || WINXP
+#if     WINNT
 
 #include "elang.h"
 #include "edef.h"

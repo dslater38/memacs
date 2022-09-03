@@ -2,6 +2,6 @@
 #define HELPID_COMMANDS     2
 #define HELPID_PROCEDURES   3
 
-#if WINXP
+#ifdef WIN32
 #include <htmlhelp.h>
 #endif

@@ -553,11 +553,11 @@ extern int PASCAL NEAR backtagword(int f, int n); /* return from tagged word */
 
 /* some library redefinitions */
 
-#if WINXP == 0
+#ifndef WIN32
 char *strrev(char *);
 #endif
 
-#if WINXP || WINNT || WINDOW_MSWIN || (MSDOS && IC) || GCC || VMS
+#if WINNT || WINDOW_MSWIN || (MSDOS && IC) || GCC || VMS
 #include <stdlib.h>
 #include <string.h>
 #else

@@ -344,7 +344,7 @@ int firstflag;			/* is this the first time in? */
 				/* don't execute emacs.rc */
 				startflag = TRUE;
 
-#if WINDOW_MSWIN32
+#ifdef WIN32
 		} else if ((argv[carg][0] != ' ') ||
                            (argv[carg][1] != '\0')) {
 		    /* WinNT PDK2 causes spurious space arguments */
