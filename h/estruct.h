@@ -10,7 +10,12 @@
 #elif defined(BUILD_LINUX)
 #	include "linux/estruct.h"
 #else
-#	include "estruct_orig.h"
+#ifdef BUILD_LINUX
+#include "linux/estruct.h"
+#else
+#include "estruct_orig.h"
+#endif
+#endif
 #endif
 
 #endif            
